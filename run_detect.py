@@ -3,6 +3,7 @@ import argparse
 from core.camera_detector import run_camera_session
 from core.hardware_detector import detect_hardware
 from core.model_selector import select_runtime_config
+from utils.file_utils import ensure_project_directories
 from utils.logger import get_logger
 from utils.runtime_prompt import BootProgress, print_runtime_dashboard, prompt_runtime_mode
 
@@ -26,6 +27,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    ensure_project_directories()
     args = parse_args()
     selected_mode = args.mode or prompt_runtime_mode()
     progress = BootProgress("YOLO REALTIME CAMERA - DANG CHUAN BI CHE DO CLI")

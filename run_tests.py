@@ -8,6 +8,8 @@ import sys
 import time
 import unittest
 
+from utils.file_utils import ensure_project_directories
+
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -239,6 +241,7 @@ class PrettyTestRunner(unittest.TextTestRunner):
 
 
 def main() -> int:
+    ensure_project_directories()
     suite = unittest.defaultTestLoader.discover("tests")
     runner = PrettyTestRunner(verbosity=0, total_tests=suite.countTestCases(), stream=sys.stdout)
     previous_disable_level = logging.root.manager.disable

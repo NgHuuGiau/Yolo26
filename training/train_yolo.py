@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
-from utils.file_utils import load_yaml
+from utils.file_utils import ensure_project_directories, load_yaml
 from utils.logger import get_logger
 
 
@@ -22,6 +22,7 @@ def _copy_best_weight(run_dir: Path) -> None:
 
 
 def main() -> None:
+    ensure_project_directories()
     config = load_yaml("training/train_config.yaml")
     model_name = config["model"]
     try:
