@@ -1,0 +1,13 @@
+model: yolo26s.pt
+fallback_model: yolo26n.pt
+data: training/data.yaml
+epochs: 80
+imgsz: 512
+batch: 4
+device: 0
+workers: 2
+cache: false
+amp: true
+patience: 20
+project: runs/train
+name: yolo_camera_rtx3050ti_4gb

@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / editor
+.idea/
+.vscode/
+*.code-workspace
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Project runtime output
+output/
+runs/
+
+# Local datasets and generated training artifacts
+dataset/train/
+dataset/val/
+dataset/test/
+
+# Local model artifacts
+models/trained/
+
+# Temporary files
+*.tmp
+*.bak

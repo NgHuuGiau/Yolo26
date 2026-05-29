@@ -1,0 +1,113 @@
+system:
+  auto_detect_hardware: true
+  prefer_gpu: true
+
+user_mode:
+  options:
+    - auto
+    - high
+    - medium
+    - low
+  default: auto
+
+hardware_profile:
+  cpu: Intel Core i7-11800H
+  gpu: NVIDIA GeForce RTX 3050 Ti Laptop GPU
+  vram_gb: 4
+
+models:
+  high:
+    model: yolo26s.pt
+    device: gpu
+    imgsz: 768
+  medium:
+    model: yolo26s.pt
+    device: gpu
+    imgsz: 640
+  low:
+    model: yolo26n.pt
+    device: auto
+    imgsz: 512
+  fallback_gpu_1:
+    model: yolo26s.pt
+    device: gpu
+    imgsz: 640
+  fallback_gpu_2:
+    model: yolo26n.pt
+    device: gpu
+    imgsz: 512
+  fallback_cpu:
+    model: yolo26n.pt
+    device: cpu
+    imgsz: 416
+  fallback_cpu_weak:
+    model: yolo11n.pt
+    device: cpu
+    imgsz: 320
+
+auto_profiles:
+  gpu_high_end:
+    min_vram_gb: 8
+    profile: high
+  gpu_balanced:
+    min_vram_gb: 4
+    profile: medium
+  gpu_entry:
+    min_vram_gb: 2
+    profile: low
+  cpu_balanced:
+    min_ram_gb: 16
+    profile: low
+  cpu_safe:
+    min_ram_gb: 8
+    profile: fallback_cpu
+  cpu_minimum:
+    min_ram_gb: 0
+    profile: fallback_cpu_weak
+
+experimental:
+  try_higher_model:
+    enabled: false
+    model: yolo26m.pt
+    imgsz: 416
+
+stable_backup:
+  gpu_model: yolo11s.pt
+  cpu_model: yolo11n.pt
+
+camera:
+  width: 800
+  height: 500
+  font_size: 18
+  box_thickness: 2
+  label_font_scale: 0.8
+  show_fps: true
+  show_model: true
+  show_device: true
+  show_imgsz: true
+
+camera_large:
+  width: 1000
+  height: 650
+  font_size: 20
+  box_thickness: 3
+  label_font_scale: 1.0
+
+display_camera:
+  width: 1000
+  height: 650
+  font_size: 20
+  box_thickness: 3
+  label_font_scale: 1.0
+
+camera_presentation:
+  width: 1280
+  height: 720
+  font_size: 22
+  box_thickness: 3
+  label_font_scale: 1.2
+
+inference:
+  confidence: 0.25
+  max_det: 100
+  use_half_for_cuda: true

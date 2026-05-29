@@ -1,0 +1,14 @@
+ultralytics
+opencv-python
+numpy
+pillow
+psutil
+GPUtil
+pandas
+matplotlib
+scikit-learn
+tqdm
+PyYAML
+torch
+torchvision
+torchaudio
