@@ -6,7 +6,7 @@
 [![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-Ứng dụng nhận diện vật thể realtime bằng YOLO, chạy thuần Python + OpenCV, có menu chọn mode trong terminal, có cơ chế fallback theo phần cứng và có sẵn pipeline train, validate, export model.
+Ứng dụng nhận diện vật thể realtime bằng YOLO, chạy thuần Python + OpenCV, có menu chọn mode trong terminal, có fallback theo phần cứng, có pipeline train/validate/export, và có chức năng chụp mẫu train ngay từ camera.
 
 ---
 
@@ -16,7 +16,7 @@
 - [2. Cài đặt môi trường](#2-cài-đặt-môi-trường)
 - [3. Cách chạy dự án](#3-cách-chạy-dự-án)
 - [4. Hướng dẫn huấn luyện đầy đủ](#4-hướng-dẫn-huấn-luyện-đầy-đủ)
-- [5. Giải thích rõ từng thư mục và file](#5-giải-thích-rõ-từng-thư-mục-và-file)
+- [5. Giải thích thư mục và file](#5-giải-thích-thư-mục-và-file)
 - [6. Khắc phục lỗi nhanh](#6-khắc-phục-lỗi-nhanh)
 
 ---
@@ -27,7 +27,7 @@
 
 Dự án mở webcam, chạy YOLO để nhận diện vật thể theo thời gian thực và hiển thị kết quả trực tiếp bằng cửa sổ OpenCV.
 
-Luồng chạy thực tế:
+Luồng chạy:
 
 ```text
 Webcam -> OpenCV -> YOLO -> Python -> Bounding boxes -> Cửa sổ camera
@@ -35,35 +35,51 @@ Webcam -> OpenCV -> YOLO -> Python -> Bounding boxes -> Cửa sổ camera
 
 ### 1.2. Những gì đang có trong mã nguồn
 
-- Chạy desktop local, không dùng web UI.
-- Có 2 entrypoint chạy detect: `run_app.py` và `run_detect.py`.
-- Có menu chọn mode `auto`, `high`, `medium`, `low` ngay trong terminal.
-- Có dashboard terminal hiển thị CPU, RAM, GPU, VRAM, PyTorch, CUDA và cấu hình runtime đang dùng.
-- Có cơ chế fallback khi model hoặc runtime hiện tại không chạy được.
-- Có sẵn model local trong `models/pretrained/`.
-- Có pipeline train, validate, export.
-- Có bộ test riêng trong terminal qua `run_tests.py`.
+- Chạy desktop local, không dùng web UI
+- Có 2 entrypoint detect: `run_app.py` và `run_detect.py`
+- Có menu chọn mode `auto`, `high`, `medium`, `low`
+- Có dashboard terminal hiển thị CPU, RAM, GPU, VRAM, PyTorch, CUDA và runtime
+- Có fallback khi runtime hoặc model hiện tại không chạy được
+- Có model local trong `models/pretrained/`
+- Có pipeline train, validate, export
+- Có bộ test hệ thống `run_tests.py`
+- Có chức năng chụp mẫu train bằng phím `T`
 
-### 1.3. Những gì camera đang hiển thị
+### 1.3. Camera đang hiển thị gì
 
-Khung hình camera hiện tại tập trung vào phần detect:
+Trên khung hình camera hiện có:
 
-- Bounding boxes
-- Tên class và độ tin cậy do hàm vẽ của dự án render lên ảnh
+- Bounding box
+- Tên class
+- Confidence
+- Tọa độ `(x1,y1) (x2,y2)` ở phía dưới box
+- Mỗi loại vật thể có màu riêng ổn định theo label
 
-### 1.4. Các mode đang có
+### 1.4. Chế độ và kích thước camera
+
+Các mode hiện có:
 
 | Phím | Mode | Ý nghĩa |
 |---|---|---|
 | `1` | `auto` | Tự đọc phần cứng rồi chọn profile phù hợp |
-| `2` | `high` | Ưu tiên chất lượng, nặng hơn |
+| `2` | `high` | Ưu tiên chất lượng |
 | `3` | `medium` | Cân bằng giữa tốc độ và độ chính xác |
 | `4` | `low` | Ưu tiên ổn định, nhẹ hơn |
-| `0` | `exit` | Thoát ở menu |
+| `0` | `exit` | Thoát tại menu |
 
-### 1.5. Logic chọn runtime trong dự án
+Hiện tại cả 4 mode đều dùng cùng kích thước camera:
 
-Dự án tách rõ 2 khái niệm:
+- `1280 x 800`
+
+Ngoài cửa sổ camera chính, hệ thống mở thêm một cửa sổ phụ:
+
+- `YOLO Capture Assistant`
+
+Cửa sổ này dùng riêng cho đếm ngược ổn định và đặt tên mẫu train, không phụ thuộc việc bạn phóng to hay thu nhỏ camera.
+
+### 1.5. Logic chọn runtime
+
+Dự án tách rõ:
 
 - `requested`: cấu hình người dùng muốn chạy
 - `resolved`: cấu hình máy thực tế chạy được
@@ -85,11 +101,6 @@ Thứ tự ưu tiên hiện tại:
 3. file local cùng tên model ở thư mục gốc
 4. `yolo11s.pt`
 5. `yolov8s.pt`
-
-Lưu ý:
-
-- Nếu profile yêu cầu model khác, loader vẫn build danh sách candidate phù hợp với profile đó.
-- Dự án hiện ưu tiên dùng model local, không thiết kế để tải model từ internet trong lúc chạy.
 
 ---
 
@@ -114,7 +125,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 2.4. Cài thư viện cơ bản
+### 2.4. Cài thư viện
 
 ```powershell
 pip install -r requirements.txt
@@ -153,13 +164,6 @@ Training và xử lý dữ liệu:
 
 #### Máy có GPU NVIDIA
 
-Cấu hình README đang hướng tới:
-
-- `torch 2.10.0`
-- `torchvision 0.25.0`
-- `torchaudio 2.10.0`
-- `CUDA 12.6`
-
 ```powershell
 .\.venv\Scripts\python -m pip uninstall -y torch torchvision torchaudio
 .\.venv\Scripts\python -m pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cu126
@@ -177,11 +181,11 @@ Nếu kết quả là:
 - `torch.version.cuda = None`
 - `torch.cuda.is_available() = False`
 
-thì môi trường hiện tại đang là CPU-only.
+thì môi trường hiện tại là CPU-only.
 
 ### 2.8. Thư mục được tạo tự động
 
-Mỗi lần chạy app hoặc training, hàm `ensure_project_directories()` trong `utils/file_utils.py` sẽ đảm bảo các thư mục sau tồn tại:
+Mỗi lần chạy app hoặc training, `utils/file_utils.py` sẽ đảm bảo các thư mục sau tồn tại:
 
 - `dataset/raw/images`
 - `dataset/raw/labels`
@@ -191,7 +195,8 @@ Mỗi lần chạy app hoặc training, hàm `ensure_project_directories()` tron
 - `dataset/processed/labels/train`
 - `dataset/processed/labels/val`
 - `dataset/processed/labels/test`
-- `dataset/sample`
+- `dataset/sample/images`
+- `dataset/sample/labels`
 - `models/pretrained`
 - `models/trained`
 - `models/exported`
@@ -206,28 +211,17 @@ Mỗi lần chạy app hoặc training, hàm `ensure_project_directories()` tron
 
 ## 3. Cách chạy dự án
 
-### 3.1. Chạy desktop chính
+### 3.1. Chạy app desktop chính
 
 ```powershell
 .\.venv\Scripts\python run_app.py
 ```
-
-Đây là entrypoint chính cho người dùng cuối. Luồng chạy:
-
-1. Tạo đủ thư mục cần thiết
-2. Nhận mode từ tham số hoặc menu terminal
-3. Detect phần cứng
-4. Chọn runtime config
-5. In dashboard terminal
-6. Mở camera và bắt đầu detect
 
 ### 3.2. Chạy detect kiểu CLI
 
 ```powershell
 .\.venv\Scripts\python run_detect.py
 ```
-
-Đây là phiên bản gọn hơn nhưng vẫn dùng cùng lõi detect trong `core/camera_detector.py`.
 
 ### 3.3. Chạy với mode cố định
 
@@ -237,13 +231,6 @@ Mỗi lần chạy app hoặc training, hàm `ensure_project_directories()` tron
 .\.venv\Scripts\python run_detect.py --mode low
 ```
 
-Các giá trị hợp lệ:
-
-- `auto`
-- `high`
-- `medium`
-- `low`
-
 ### 3.4. Chạy với camera khác
 
 ```powershell
@@ -251,16 +238,14 @@ Các giá trị hợp lệ:
 .\.venv\Scripts\python run_detect.py --camera-index 1
 ```
 
-Dùng khi máy có nhiều camera hoặc webcam mặc định bị chiếm.
-
 ### 3.5. `run_app.py` và `run_detect.py` khác nhau gì
 
 | File | Vai trò |
 |---|---|
-| `run_app.py` | Entry point desktop chính, phù hợp dùng như ứng dụng mặc định |
-| `run_detect.py` | Entry point detect dạng CLI, phù hợp chạy nhanh hoặc test |
+| `run_app.py` | Entry point desktop chính |
+| `run_detect.py` | Entry point detect dạng CLI |
 
-Hiện tại cả hai đều:
+Cả hai đều:
 
 - gọi `detect_hardware()`
 - gọi `select_runtime_config()`
@@ -269,35 +254,54 @@ Hiện tại cả hai đều:
 
 ### 3.6. Bên trong camera session xảy ra gì
 
-`core/camera_detector.py` làm các việc chính sau:
+`core/camera_detector.py` làm các việc chính:
 
 1. Chọn runtime hiện tại
-2. Load model YOLO local
+2. Load model local
 3. Mở webcam
 4. Đọc frame liên tục
 5. Gọi `model.predict(...)`
-6. Vẽ bounding boxes lên ảnh
-7. Nếu inference lỗi, tự thử fallback runtime an toàn hơn
+6. Vẽ detect lên frame
+7. Nếu inference lỗi, tự fallback sang cấu hình an toàn hơn
 
-### 3.7. Thoát camera
+### 3.7. Chụp mẫu train bằng phím `T`
 
-- Nhấn `Esc`
+Khi camera đang chạy:
 
-### 3.8. Chạy toàn bộ test hệ thống
+- bấm `T` để bắt đầu quy trình chụp mẫu train
+- hệ thống không chụp ngay, mà kiểm tra độ ổn định khung hình trong `5 giây`
+- nếu phát hiện rung/lắc vượt ngưỡng, bộ đếm sẽ reset
+- khi đủ ổn định, cửa sổ `YOLO Capture Assistant` chuyển sang chế độ đặt tên
+- gõ tên mẫu rồi:
+  - `Enter`: lưu mẫu
+  - `Backspace`: xóa ký tự
+  - `Esc`: hủy
+
+Dữ liệu được lưu vào:
+
+- ảnh: `dataset/sample/images/`
+- nhãn YOLO `.txt`: `dataset/sample/labels/`
+
+Lưu ý:
+
+- đây là mẫu sinh từ kết quả detect hiện tại của model
+- vẫn nên kiểm tra lại trước khi chuyển sang `dataset/raw/` để train thật
+
+### 3.8. Thoát camera
+
+- nhấn `Esc`
+
+### 3.9. Chạy toàn bộ test hệ thống
 
 ```powershell
 .\.venv\Scripts\python run_tests.py
 ```
 
-`run_tests.py` sẽ:
+Trạng thái hiện tại:
 
-- discover toàn bộ test trong `tests/`
-- chạy lần lượt từng test
-- hiển thị `PASS / FAIL / ERROR / SKIP`
-- có progress bar trong terminal
-- in tổng kết cuối phiên
+- `44 / 44 PASS`
 
-### 3.9. Lệnh nhanh
+### 3.10. Lệnh nhanh
 
 | Tác vụ | Lệnh |
 |---|---|
@@ -306,6 +310,8 @@ Hiện tại cả hai đều:
 | Chạy app mode medium | `.\.venv\Scripts\python run_app.py --mode medium` |
 | Chạy detect mode low | `.\.venv\Scripts\python run_detect.py --mode low` |
 | Chạy camera index 1 | `.\.venv\Scripts\python run_app.py --camera-index 1` |
+| Kiểm tra dataset raw | `.\.venv\Scripts\python training/validate_dataset.py` |
+| Chia dataset | `.\.venv\Scripts\python training/split_dataset.py` |
 | Chạy train | `.\.venv\Scripts\python run_train.py` |
 | Validate model | `.\.venv\Scripts\python training/validate_model.py` |
 | Export model | `.\.venv\Scripts\python training/export_model.py` |
@@ -315,15 +321,20 @@ Hiện tại cả hai đều:
 
 ## 4. Hướng dẫn huấn luyện đầy đủ
 
-Phần này mô tả đúng luồng code hiện tại trong thư mục `training/`.
+### 4.1. Train thật lấy dữ liệu ở đâu
 
-### 4.1. Cấu trúc dữ liệu YOLO đầu vào
+Nguồn dữ liệu chính thức để train là:
 
-Bạn cần chuẩn bị dataset theo kiểu YOLO:
+- `dataset/raw/images/`
+- `dataset/raw/labels/`
 
-- ảnh nằm trong `dataset/raw/images/`
-- file label `.txt` nằm trong `dataset/raw/labels/`
-- mỗi ảnh phải có file label cùng tên
+Không train trực tiếp từ `dataset/sample/`.
+
+`dataset/sample/` chỉ là nơi lưu mẫu chụp nhanh từ camera để bạn sàng lọc trước.
+
+### 4.2. Cấu trúc dữ liệu YOLO đầu vào
+
+Mỗi ảnh phải có file label `.txt` cùng stem.
 
 Ví dụ:
 
@@ -338,58 +349,46 @@ dataset/
         `-- frame_002.txt
 ```
 
-### 4.2. Bước 0: tạo sẵn thư mục dataset nếu cần
+### 4.3. Bước 0: tạo sẵn thư mục dataset
 
 ```powershell
 .\.venv\Scripts\python training/prepare_dataset.py
 ```
 
-Script này không chia dữ liệu. Nó chỉ đảm bảo các thư mục cần cho dataset đã tồn tại.
+### 4.4. Bước 1: kiểm tra dataset raw
 
-### 4.3. Bước 1: đưa dữ liệu gốc vào `dataset/raw/`
+```powershell
+.\.venv\Scripts\python training/validate_dataset.py
+```
 
-Bạn tự chép dữ liệu vào:
+Script này sẽ báo:
 
-- `dataset/raw/images/`
-- `dataset/raw/labels/`
+- ảnh thiếu label
+- label lỗi format
+- label mồ côi
+- label rỗng
 
-Yêu cầu:
-
-- nhãn đúng format YOLO
-- tên file label trùng stem với ảnh
-- ảnh có đuôi `.jpg`, `.jpeg`, `.png`, `.bmp`
-
-### 4.4. Bước 2: chia train / val / test
+### 4.5. Bước 2: chia train / val / test
 
 ```powershell
 .\.venv\Scripts\python training/split_dataset.py
 ```
 
-Script này làm gì:
+Script này:
 
-- đọc toàn bộ ảnh trong `dataset/raw/images/`
-- tìm label tương ứng trong `dataset/raw/labels/`
-- trộn dữ liệu với seed cố định `42`
-- chia theo tỷ lệ:
+- đọc ảnh từ `dataset/raw/images/`
+- đọc label từ `dataset/raw/labels/`
+- trộn dữ liệu với seed `42`
+- chia tỷ lệ:
   - `train = 70%`
   - `val = 15%`
   - `test = 15%`
-- copy sang:
-  - `dataset/processed/images/train`
-  - `dataset/processed/images/val`
-  - `dataset/processed/images/test`
-  - `dataset/processed/labels/train`
-  - `dataset/processed/labels/val`
-  - `dataset/processed/labels/test`
+- copy sang `dataset/processed/...`
+- trước khi chia lại sẽ xóa sạch dữ liệu cũ trong `dataset/processed/`
 
-Lưu ý quan trọng:
+### 4.6. Bước 3: cập nhật class names trong `training/data.yaml`
 
-- Script hiện tại `copy` dữ liệu sang `dataset/processed/`, không xóa dữ liệu cũ trước.
-- Nếu bạn thay dataset rồi chạy lại nhiều lần, nên tự dọn `dataset/processed/` để tránh lẫn file cũ.
-
-### 4.5. Bước 3: cập nhật class names trong `training/data.yaml`
-
-File hiện tại:
+Ví dụ:
 
 ```yaml
 path: ../dataset/processed
@@ -404,142 +403,69 @@ names:
   3: helmet
 ```
 
-Bạn cần sửa phần `names` cho đúng dataset thực tế.
+### 4.7. Bước 4: kiểm tra cấu hình train
 
-Ý nghĩa:
+Mở `training/train_config.yaml`.
 
-- `path`: thư mục dataset đã xử lý
-- `train`: đường dẫn tương đối tới ảnh train
-- `val`: đường dẫn tương đối tới ảnh val
-- `test`: đường dẫn tương đối tới ảnh test
-- `names`: mapping class id sang tên class
+Các trường quan trọng:
 
-### 4.6. Bước 4: kiểm tra cấu hình train trong `training/train_config.yaml`
+- `model`
+- `fallback_model`
+- `epochs`
+- `imgsz`
+- `batch`
+- `device`
+- `project`
+- `name`
 
-File hiện tại:
-
-```yaml
-model: yolo26s.pt
-fallback_model: yolo26n.pt
-data: training/data.yaml
-epochs: 80
-imgsz: 512
-batch: 4
-device: 0
-workers: 2
-cache: false
-amp: true
-patience: 20
-project: runs/train
-name: yolo_camera_rtx3050ti_4gb
-```
-
-Ý nghĩa các trường chính:
-
-- `model`: model chính để train
-- `fallback_model`: model fallback nếu cấu hình chính lỗi
-- `data`: file dataset YAML cho Ultralytics
-- `epochs`: số epoch
-- `imgsz`: kích thước ảnh train
-- `batch`: batch size
-- `device`: thiết bị train, `0` thường nghĩa là GPU đầu tiên
-- `workers`: số worker load data
-- `cache`: có cache dataset hay không
-- `amp`: mixed precision
-- `patience`: early stopping patience
-- `project`: thư mục gốc để Ultralytics lưu artifact
-- `name`: tên run train
-
-Khuyến nghị thực tế:
-
-- Nếu máy yếu hoặc VRAM thấp, hãy giảm `imgsz` và `batch`.
-- Nếu train bằng CPU, `device: 0` có thể không phù hợp; khi đó nên điều chỉnh lại theo môi trường thực tế.
-
-### 4.7. Bước 5: chạy train
+### 4.8. Bước 5: chạy train
 
 ```powershell
 .\.venv\Scripts\python run_train.py
 ```
 
-`run_train.py` chỉ gọi `training.train_yolo.main()`.
+Luồng train:
 
-Luồng train thực tế trong `training/train_yolo.py`:
+1. đọc `training/train_config.yaml`
+2. train với model chính
+3. nếu lỗi thì fallback model nhẹ hơn
+4. giảm `imgsz` và `batch` khi cần
+5. copy `weights/best.pt` về `models/trained/best.pt`
 
-1. Gọi `ensure_project_directories()`
-2. Đọc config từ `training/train_config.yaml`
-3. Tạo model bằng `YOLO(model_name)`
-4. Gọi `model.train(**config)`
-5. Nếu lỗi ở cấu hình chính:
-   - log cảnh báo
-   - đổi sang `fallback_model`
-   - giảm `imgsz` xuống tối đa `416`
-   - giảm `batch` xuống tối đa `4`
-   - train lại
-6. Sau khi train xong:
-   - lấy `weights/best.pt` trong thư mục run của Ultralytics
-   - copy sang `models/trained/best.pt`
-
-### 4.8. Kết quả sau khi train nằm ở đâu
-
-Sau khi train thành công, bạn sẽ có:
-
-- artifact đầy đủ của Ultralytics trong `runs/train/...`
-- model tốt nhất chuẩn hóa lại ở `models/trained/best.pt`
-
-Đây là file model mà phần detect và validate sẽ ưu tiên dùng.
-
-### 4.9. Bước 6: validate model
+### 4.9. Bước 6: validate
 
 ```powershell
 .\.venv\Scripts\python training/validate_model.py
 ```
 
-Script này:
-
-- ưu tiên dùng `models/trained/best.pt`
-- nếu chưa có thì fallback sang `yolo11n.pt`
-- gọi `model.val(data="training/data.yaml", project="runs/val", name="validation")`
-- lưu kết quả vào `runs/val`
-
-### 4.10. Bước 7: export model
+### 4.10. Bước 7: export ONNX
 
 ```powershell
 .\.venv\Scripts\python training/export_model.py
 ```
 
-Script này:
-
-- bắt buộc phải có `models/trained/best.pt`
-- load model đó
-- gọi `model.export(format="onnx")`
-
-Lưu ý:
-
-- Code hiện tại không chỉ rõ output export phải nằm trong `models/exported/`.
-- Vì vậy sau khi export, bạn nên kiểm tra file ONNX thực tế được Ultralytics sinh ra ở đâu trong lần chạy của bạn.
-
-### 4.11. Quy trình huấn luyện đầy đủ nên chạy theo thứ tự nào
+### 4.11. Quy trình đầy đủ
 
 ```powershell
 .\.venv\Scripts\python training/prepare_dataset.py
+.\.venv\Scripts\python training/validate_dataset.py
 .\.venv\Scripts\python training/split_dataset.py
 .\.venv\Scripts\python run_train.py
 .\.venv\Scripts\python training/validate_model.py
 .\.venv\Scripts\python training/export_model.py
 ```
 
-### 4.12. Nếu train xong muốn dùng ngay trong app detect
+### 4.12. Sau khi train xong detect có tự dùng model mới không
 
-Không cần sửa code.
+Có.
 
-Lý do:
+Vì `core/yolo_loader.py` ưu tiên:
 
-- `core/yolo_loader.py` ưu tiên `models/trained/best.pt`
-- nên sau khi train xong, lần chạy detect kế tiếp sẽ tự ưu tiên model đã train nếu file này tồn tại
+- `models/trained/best.pt`
 
 ---
 
-## 5. Giải thích rõ từng thư mục và file
+## 5. Giải thích thư mục và file
 
 ### 5.1. Cây thư mục chính
 
@@ -566,128 +492,100 @@ YOLO/
 `-- run_train.py
 ```
 
-### 5.2. Giải thích rõ từng thư mục
+### 5.2. Giải thích từng thư mục
 
-| Thư mục | Giải thích rõ vai trò |
+| Thư mục | Vai trò |
 |---|---|
-| `.venv/` | Môi trường ảo của dự án. Toàn bộ Python package của dự án nên nằm ở đây để tránh xung đột với Python toàn máy. |
-| `app/` | Tầng ứng dụng mỏng. Nơi đặt các thành phần hỗ trợ phần hiển thị hoặc tổ chức app-level. |
-| `config/` | Nơi chứa toàn bộ cấu hình YAML của dự án: mode runtime, camera preset, thứ tự ưu tiên model và setting chung. |
-| `core/` | Lõi nghiệp vụ detect realtime. Đây là phần quan trọng nhất của ứng dụng khi chạy camera. |
-| `dataset/` | Toàn bộ dữ liệu phục vụ train: dữ liệu gốc, dữ liệu đã chia và dữ liệu mẫu. |
-| `docs/` | Tài liệu kỹ thuật phụ, ghi chú hoặc mô tả thêm cho dự án. |
-| `models/` | Nơi quản lý model theo từng trạng thái: model preload, model train xong, model export. |
-| `output/` | Output phụ của hệ thống như log, ảnh chụp hoặc video do dự án tự tạo ra. |
-| `runs/` | Artifact do Ultralytics sinh ra khi train, validate hoặc detect. Dùng để theo dõi lịch sử các lần chạy. |
-| `tests/` | Bộ test tự động cho các module chính. |
-| `training/` | Toàn bộ pipeline huấn luyện: chuẩn bị dữ liệu, chia dataset, train, validate, export và các file YAML liên quan. |
-| `utils/` | Hàm tiện ích dùng chung: đọc YAML, tạo thư mục, logger, prompt runtime, vẽ kết quả detect. |
+| `.venv/` | Môi trường ảo của dự án |
+| `app/` | Helper tầng ứng dụng |
+| `config/` | Toàn bộ YAML cấu hình |
+| `core/` | Lõi detect realtime |
+| `dataset/` | Dữ liệu train, dữ liệu chia sẵn, mẫu chụp từ camera |
+| `docs/` | Tài liệu phụ |
+| `models/` | Model preload, model train xong, model export |
+| `output/` | Output phụ của hệ thống |
+| `runs/` | Artifact do Ultralytics sinh ra |
+| `tests/` | Bộ test tự động |
+| `training/` | Toàn bộ pipeline training |
+| `utils/` | Hàm tiện ích dùng chung |
 
-### 5.3. Giải thích chi tiết `config/`
+### 5.3. Giải thích `dataset/`
 
-| File | Vai trò thực tế |
+| Thư mục | Vai trò |
 |---|---|
-| `config/settings.yaml` | File cấu hình runtime quan trọng nhất. Chứa mode `high/medium/low`, auto profile, confidence, camera preset, fallback profile. |
-| `config/model_config.yaml` | Chứa thứ tự ưu tiên khi load model local. |
-| `config/camera_config.yaml` | Chứa preset camera theo kích thước hiển thị. Hiện dự án chọn preset chủ yếu từ `settings.yaml`. |
+| `dataset/raw/` | Nguồn chính thức để train |
+| `dataset/raw/images/` | Ảnh gốc |
+| `dataset/raw/labels/` | Label YOLO gốc |
+| `dataset/processed/` | Dữ liệu đã chia train/val/test |
+| `dataset/sample/` | Mẫu chụp nhanh từ camera bằng phím `T` |
+| `dataset/sample/images/` | Ảnh mẫu |
+| `dataset/sample/labels/` | Label YOLO sinh từ detect hiện tại |
 
-### 5.4. Giải thích chi tiết `core/`
+### 5.4. Giải thích `models/`
 
-| File | Vai trò thực tế |
+| Thư mục | Vai trò |
 |---|---|
-| `core/hardware_detector.py` | Đọc CPU, RAM, GPU, VRAM, PyTorch, CUDA để biết máy hiện tại chạy được gì. |
-| `core/model_selector.py` | Biến mode người dùng chọn thành `RuntimeConfig` thật sự có thể chạy trên máy hiện tại. |
-| `core/yolo_loader.py` | Tìm và load model local theo thứ tự ưu tiên. Đây là nơi quyết định app sẽ lấy model từ `models/trained/`, `models/pretrained/` hay file local khác. |
-| `core/fallback_manager.py` | Sinh ra chuỗi fallback runtime để hệ thống thử cấu hình an toàn hơn khi cấu hình hiện tại lỗi. |
-| `core/camera_detector.py` | Lõi nhận diện realtime: mở webcam, đọc frame, gọi YOLO predict, vẽ kết quả, xử lý lỗi inference và recovery. |
+| `models/pretrained/` | Model local preload |
+| `models/trained/` | Model sau khi train, quan trọng nhất là `best.pt` |
+| `models/exported/` | Nơi dành cho model export |
 
-### 5.5. Giải thích chi tiết `dataset/`
+### 5.5. Giải thích `runs/` và `output/`
 
-| Thư mục | Vai trò thực tế |
+| Thư mục | Vai trò |
 |---|---|
-| `dataset/raw/` | Dữ liệu gốc bạn tự đưa vào trước khi train. Đây là đầu vào của `training/split_dataset.py`. |
-| `dataset/raw/images/` | Ảnh gốc để train. |
-| `dataset/raw/labels/` | Label YOLO gốc tương ứng với ảnh. |
-| `dataset/processed/` | Dữ liệu đã được chia train/val/test để Ultralytics sử dụng. |
-| `dataset/processed/images/train` | Ảnh train. |
-| `dataset/processed/images/val` | Ảnh validation. |
-| `dataset/processed/images/test` | Ảnh test. |
-| `dataset/processed/labels/train` | Label train. |
-| `dataset/processed/labels/val` | Label validation. |
-| `dataset/processed/labels/test` | Label test. |
-| `dataset/sample/` | Nơi để dữ liệu mẫu hoặc dữ liệu thử nhanh. Hiện chưa đi vào pipeline train chính. |
+| `runs/` | Artifact do Ultralytics sinh ra khi train/val/detect |
+| `output/` | Output phụ của dự án như logs, screenshots, videos |
 
-### 5.6. Giải thích chi tiết `models/`
+### 5.6. Giải thích `core/`
 
-| Thư mục | Vai trò thực tế |
+| File | Vai trò |
 |---|---|
-| `models/pretrained/` | Model YOLO preload sẵn để app detect chạy ngay cả khi chưa train model riêng. |
-| `models/trained/` | Model sinh ra sau train. File chuẩn app ưu tiên dùng là `models/trained/best.pt`. |
-| `models/exported/` | Thư mục dành cho model export. Tuy nhiên code export hiện chưa ép output vào đây, nên cần xem output thực tế sau khi export. |
+| `core/hardware_detector.py` | Đọc CPU, RAM, GPU, VRAM, PyTorch, CUDA |
+| `core/model_selector.py` | Chọn runtime theo mode và phần cứng |
+| `core/yolo_loader.py` | Load model local theo thứ tự ưu tiên |
+| `core/fallback_manager.py` | Sinh chuỗi fallback runtime |
+| `core/camera_detector.py` | Lõi detect realtime, chụp mẫu train, cửa sổ trợ lý |
 
-### 5.7. Giải thích chi tiết `training/`
+### 5.7. Giải thích `training/`
 
-| File | Vai trò thực tế |
+| File | Vai trò |
 |---|---|
-| `training/prepare_dataset.py` | Tạo sẵn các thư mục dataset cần dùng. Không chia dữ liệu. |
-| `training/split_dataset.py` | Chia dữ liệu từ `dataset/raw/` sang `dataset/processed/` theo tỷ lệ train/val/test. |
-| `training/train_yolo.py` | Logic train chính. Có fallback model nếu train cấu hình chính thất bại và có bước copy `best.pt` sang `models/trained/`. |
-| `training/validate_model.py` | Validate model đã train hoặc fallback sang model mặc định nếu chưa có `best.pt`. |
-| `training/export_model.py` | Export model đã train sang ONNX. |
-| `training/train_config.yaml` | Cấu hình hyperparameter và đường dẫn train. |
-| `training/data.yaml` | Cấu hình dataset để Ultralytics biết train/val/test nằm ở đâu và class names là gì. |
-| `training/README_TRAINING.md` | Tài liệu ngắn riêng cho pipeline training. |
+| `training/prepare_dataset.py` | Tạo sẵn cấu trúc thư mục dataset |
+| `training/validate_dataset.py` | Kiểm tra dataset raw trước khi train |
+| `training/split_dataset.py` | Chia train/val/test |
+| `training/train_yolo.py` | Logic train chính |
+| `training/validate_model.py` | Validate model |
+| `training/export_model.py` | Export ONNX |
+| `training/train_config.yaml` | Hyperparameter train |
+| `training/data.yaml` | Dataset config cho Ultralytics |
+| `training/README_TRAINING.md` | Tài liệu ngắn riêng cho training |
 
-### 5.8. Giải thích chi tiết `utils/`
+### 5.8. Giải thích `utils/`
 
-| File | Vai trò thực tế |
+| File | Vai trò |
 |---|---|
-| `utils/file_utils.py` | Tạo thư mục, đọc YAML, ghi YAML và cache YAML. |
-| `utils/logger.py` | Tạo logger dùng chung cho toàn dự án. |
-| `utils/runtime_prompt.py` | In menu chọn mode, progress boot và dashboard terminal. |
-| `utils/visualization.py` | Vẽ bounding boxes, label và phần hiển thị detect lên frame. |
+| `utils/file_utils.py` | Tạo thư mục, đọc YAML, ghi YAML |
+| `utils/logger.py` | Logger dùng chung |
+| `utils/runtime_prompt.py` | Menu mode, dashboard terminal |
+| `utils/visualization.py` | Vẽ detect lên frame |
 
-### 5.9. Giải thích các file gốc ở thư mục root
+### 5.9. Giải thích file ở root
 
-| File | Vai trò thực tế |
+| File | Vai trò |
 |---|---|
-| `run_app.py` | Entry point desktop chính. |
-| `run_detect.py` | Entry point detect kiểu CLI. |
-| `run_train.py` | Entry point train model. |
-| `run_tests.py` | Entry point chạy toàn bộ test với dashboard terminal đẹp hơn mặc định. |
-| `requirements.txt` | Danh sách package Python cần cài. |
-| `README.md` | Tài liệu sử dụng và mô tả dự án. |
-| `LICENSE` | Giấy phép MIT của dự án. |
-
-### 5.10. Giải thích `tests/`
-
-Thư mục `tests/` chứa test cho các nhóm chức năng chính:
-
-- detect camera
-- file utilities
-- hardware detection
-- runtime selection
-- prompt terminal
-- entrypoints
-- training pipeline
-- model loading
-
-Mục đích:
-
-- giảm rủi ro sửa code làm hỏng detect hoặc training
-- kiểm tra nhanh toàn bộ hệ thống bằng `run_tests.py`
+| `run_app.py` | Entry point desktop chính |
+| `run_detect.py` | Entry point detect CLI |
+| `run_train.py` | Entry point train |
+| `run_tests.py` | Chạy toàn bộ test |
+| `requirements.txt` | Package cần cài |
+| `README.md` | Tài liệu chính |
+| `LICENSE` | Giấy phép MIT |
 
 ---
 
 ## 6. Khắc phục lỗi nhanh
 
 ### Có GPU nhưng vẫn chạy CPU
-
-Nguyên nhân thường gặp:
-
-- `.venv` đang dùng bản `torch +cpu`
-- PyTorch không có CUDA build
-- cài sai bản `torch`
 
 Kiểm tra:
 
@@ -697,29 +595,28 @@ Kiểm tra:
 
 ### Không mở được webcam
 
-- Thử `--camera-index 1`
-- Đóng ứng dụng khác đang dùng webcam
-- Kiểm tra webcam có hoạt động ở ứng dụng khác không
+- thử `--camera-index 1`
+- đóng ứng dụng khác đang dùng webcam
+- kiểm tra webcam ở ứng dụng khác
 
 ### Camera lag
 
-- Chạy `--mode medium`
-- Nếu vẫn lag, chuyển `--mode low`
-- Giảm độ phân giải camera hoặc dùng profile nhẹ hơn trong config
+- chạy `--mode medium`
+- nếu vẫn lag, chuyển `--mode low`
 
 ### Không detect được vật thể
 
-- Kiểm tra ánh sáng
-- Đưa vật thể gần camera hơn
-- Kiểm tra class names và model đang dùng
-- Nếu dùng model tự train, xác nhận `models/trained/best.pt` là model đúng
+- tăng ánh sáng
+- đưa vật thể gần camera hơn
+- kiểm tra model hiện tại
+- nếu dùng model tự train, xác nhận `models/trained/best.pt` là file đúng
 
 ### Lỗi khi train
 
-- Kiểm tra `training/data.yaml`
-- Kiểm tra `dataset/raw/` đã có đủ ảnh và label chưa
-- Kiểm tra `dataset/processed/` có được tạo sau bước split chưa
-- Nếu thiếu VRAM, giảm `imgsz` và `batch` trong `training/train_config.yaml`
+- kiểm tra `training/data.yaml`
+- kiểm tra `dataset/raw/` đã có đủ ảnh và label chưa
+- chạy `training/validate_dataset.py`
+- nếu thiếu VRAM, giảm `imgsz` và `batch`
 
 ### Lỗi không load được model local
 
@@ -733,7 +630,7 @@ Kiểm tra:
 
 ## Ghi chú
 
-- Nên chạy toàn bộ dự án bằng Python trong `.venv`.
-- Nếu muốn dùng GPU NVIDIA, cần cài đúng bản PyTorch có CUDA, không dùng bản `+cpu`.
-- Sau khi train xong, app detect sẽ tự ưu tiên `models/trained/best.pt` nếu file này tồn tại.
-- README này mô tả theo code hiện tại trong repo, không mô tả tính năng chưa có trong mã nguồn.
+- Nên chạy toàn bộ dự án bằng Python trong `.venv`
+- Nếu muốn dùng GPU NVIDIA, cần cài đúng bản PyTorch có CUDA
+- Sau khi train xong, detect sẽ tự ưu tiên `models/trained/best.pt`
+- Hiện tại toàn bộ test hệ thống đang pass `44/44`

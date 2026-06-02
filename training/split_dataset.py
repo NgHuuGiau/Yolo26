@@ -34,6 +34,22 @@ class DatasetAudit:
     empty_labels: list[Path]
 
 
+def print_audit_summary(audit: DatasetAudit, *, detail_limit: int = 5) -> None:
+    print(f"Tong anh raw: {audit.raw_image_count}")
+    print(f"Anh hop le de train: {len(audit.eligible_images)}")
+    print(f"Anh thieu label: {len(audit.missing_labels)}")
+    print(f"Label rong: {len(audit.empty_labels)}")
+    print(f"Label loi: {len(audit.invalid_labels)}")
+    print(f"Label mo coi: {len(audit.orphan_labels)}")
+
+    for image_path in audit.missing_labels[:detail_limit]:
+        print(f"Bo qua anh thieu label: {image_path.name}")
+    for label_path, issue in audit.invalid_labels[:detail_limit]:
+        print(f"Bo qua label loi: {label_path.name} -> {issue}")
+    for label_path in audit.orphan_labels[:detail_limit]:
+        print(f"Label mo coi: {label_path.name}")
+
+
 def _label_path_for(image_path: Path) -> Path:
     return RAW_LABELS_DIR / f"{image_path.stem}.txt"
 
@@ -145,19 +161,7 @@ def main() -> None:
         print("Khong co anh trong dataset/raw/images")
         return
 
-    print(f"Tong anh raw: {audit.raw_image_count}")
-    print(f"Anh hop le de train: {len(audit.eligible_images)}")
-    print(f"Anh thieu label: {len(audit.missing_labels)}")
-    print(f"Label rong: {len(audit.empty_labels)}")
-    print(f"Label loi: {len(audit.invalid_labels)}")
-    print(f"Label mo coi: {len(audit.orphan_labels)}")
-
-    for image_path in audit.missing_labels[:5]:
-        print(f"Bo qua anh thieu label: {image_path.name}")
-    for label_path, issue in audit.invalid_labels[:5]:
-        print(f"Bo qua label loi: {label_path.name} -> {issue}")
-    for label_path in audit.orphan_labels[:5]:
-        print(f"Label mo coi: {label_path.name}")
+    print_audit_summary(audit)
 
     if not audit.eligible_images:
         print("Khong co anh hop le nao de chia dataset")
