@@ -6,14 +6,17 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from training import export_model, train_yolo, validate_model
+from training import export_model, train_model, validate_model
 
 
 class TrainingPipelineTests(unittest.TestCase):
-    @patch("training.train_yolo._copy_best_weight")
-    @patch("training.train_yolo.YOLO")
-    @patch("training.train_yolo.load_yaml")
-    def test_train_main_falls_back_to_lighter_model(self, load_yaml_mock, yolo_mock, copy_best_mock) -> None:
+    @patch("training.train_model._ensure_training_dataset_ready")
+    @patch("training.train_model._copy_best_weight")
+    @patch("training.train_model.YOLO")
+    @patch("training.train_model.load_yaml")
+    def test_train_main_falls_back_to_lighter_model(
+        self, load_yaml_mock, yolo_mock, copy_best_mock, ensure_dataset_ready_mock
+    ) -> None:
         load_yaml_mock.return_value = {
             "model": "yolo26s.pt",
             "fallback_model": "yolo26n.pt",
@@ -35,8 +38,9 @@ class TrainingPipelineTests(unittest.TestCase):
         fallback_model = MagicMock()
         fallback_model.train.return_value = SimpleNamespace(save_dir="runs/train/test-run")
         yolo_mock.side_effect = [primary_model, fallback_model]
+        ensure_dataset_ready_mock.return_value = None
 
-        train_yolo.main()
+        train_model.main()
 
         fallback_model.train.assert_called_once()
         kwargs = fallback_model.train.call_args.kwargs
@@ -56,7 +60,7 @@ class TrainingPipelineTests(unittest.TestCase):
             target = Path("models/trained/best.pt")
             original = target.read_bytes() if target.exists() else None
             try:
-                train_yolo._copy_best_weight(run_dir)
+                train_model._copy_best_weight(run_dir)
                 self.assertTrue(target.exists())
                 self.assertEqual(target.read_text(encoding="utf-8"), "fake-weight")
             finally:
@@ -71,7 +75,7 @@ class TrainingPipelineTests(unittest.TestCase):
         yolo_mock.return_value = model
         with patch("training.validate_model.resolve_trained_model_path", return_value=Path("yolo11n.pt")):
             validate_model.main()
-        yolo_mock.assert_called_once_with("yolo11n.pt")
+        yolo_mock.assert_called_once_with(str(Path("models/pretrained/yolo11n.pt")))
         model.val.assert_called_once()
 
     @patch("training.export_model.YOLO")

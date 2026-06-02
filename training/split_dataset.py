@@ -6,9 +6,9 @@ import shutil
 from pathlib import Path
 
 try:
-    from training._bootstrap import ensure_project_root_on_path
+    from training._training_bootstrap import ensure_project_root_on_path
 except ModuleNotFoundError:
-    from _bootstrap import ensure_project_root_on_path
+    from _training_bootstrap import ensure_project_root_on_path
 
 ensure_project_root_on_path()
 

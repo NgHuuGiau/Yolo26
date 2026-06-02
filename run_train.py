@@ -1,4 +1,4 @@
-from training.train_yolo import main
+from training.train_model import main
 
 
 if __name__ == "__main__":

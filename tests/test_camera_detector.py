@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from core.camera_detector import CameraDetector, DetectionRecord, _sanitize_sample_name
-from core.hardware_detector import HardwareInfo
+from core.camera_runner import CameraDetector, DetectionRecord, _sanitize_sample_name
+from core.hardware_info import HardwareInfo
 from core.model_selector import select_runtime_config
-from core.yolo_loader import LoadedModel
+from core.model_loader import LoadedModel
 
 
 class _FakeValue:
@@ -50,9 +50,9 @@ class CameraDetectorTests(unittest.TestCase):
         )
         return select_runtime_config("medium", hardware)
 
-    @patch("core.camera_detector.cv2.VideoCapture")
-    @patch("core.camera_detector.iter_fallback_configs")
-    @patch("core.camera_detector.load_yolo_model")
+    @patch("core.camera_runner.cv2.VideoCapture")
+    @patch("core.camera_runner.iter_fallback_configs")
+    @patch("core.camera_runner.load_yolo_model")
     def test_initialize_uses_fallback_runtime_when_primary_fails(
         self,
         load_model_mock,
@@ -79,9 +79,9 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(detector.runtime.primary_model_name, "yolo26n.pt")
         self.assertIs(detector.capture, capture)
 
-    @patch("core.camera_detector.draw_detection_results", side_effect=lambda image, detections, box_thickness, label_font_scale: image)
-    @patch("core.camera_detector.cv2.VideoCapture")
-    @patch("core.camera_detector.load_yolo_model")
+    @patch("core.camera_runner.draw_detection_results", side_effect=lambda image, detections, box_thickness, label_font_scale: image)
+    @patch("core.camera_runner.cv2.VideoCapture")
+    @patch("core.camera_runner.load_yolo_model")
     def test_read_and_detect_returns_parsed_detections(
         self,
         load_model_mock,
@@ -169,8 +169,8 @@ class CameraDetectorTests(unittest.TestCase):
     def test_sanitize_sample_name_replaces_invalid_chars(self) -> None:
         self.assertEqual(_sanitize_sample_name("  nguoi doi non/01  "), "nguoi_doi_non_01")
 
-    @patch("core.camera_detector.cv2.VideoCapture")
-    @patch("core.camera_detector.load_yolo_model")
+    @patch("core.camera_runner.cv2.VideoCapture")
+    @patch("core.camera_runner.load_yolo_model")
     def test_read_and_detect_recovers_after_inference_failure(
         self,
         load_model_mock,
@@ -203,8 +203,8 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(detector.recovery_count, 1)
         reinitialize_mock.assert_called_once()
 
-    @patch("core.camera_detector.cv2.VideoCapture")
-    @patch("core.camera_detector.load_yolo_model")
+    @patch("core.camera_runner.cv2.VideoCapture")
+    @patch("core.camera_runner.load_yolo_model")
     def test_read_and_detect_raises_after_many_camera_read_failures(
         self,
         load_model_mock,

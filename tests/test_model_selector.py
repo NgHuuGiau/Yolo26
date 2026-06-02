@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from core.fallback_manager import iter_fallback_configs
-from core.hardware_detector import HardwareInfo
+from core.hardware_info import HardwareInfo
 from core.model_selector import build_candidates, select_runtime_config
 from utils.file_utils import load_yaml
 

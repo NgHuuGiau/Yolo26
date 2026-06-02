@@ -1,11 +1,11 @@
 import argparse
 
-from app.runtime_entry import build_runtime_arg_parser, run_camera_entrypoint
-from core.camera_detector import run_camera_session
-from core.hardware_detector import detect_hardware
+from app.camera_app import build_runtime_arg_parser, run_camera_entrypoint
+from core.camera_runner import run_camera_session
+from core.hardware_info import detect_hardware
 from core.model_selector import select_runtime_config
 from utils.logger import get_logger
-from utils.runtime_prompt import prompt_runtime_mode
+from utils.console_ui import prompt_runtime_mode
 
 
 logger = get_logger(__name__)

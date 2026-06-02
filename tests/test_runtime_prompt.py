@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from utils.runtime_prompt import mode_to_ui_defaults, prompt_runtime_mode
+from utils.console_ui import mode_to_ui_defaults, prompt_runtime_mode
 
 
 class RuntimePromptTests(unittest.TestCase):

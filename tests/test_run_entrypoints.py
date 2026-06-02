@@ -6,7 +6,7 @@ from unittest.mock import patch
 import run_app
 import run_detect
 import run_train
-from utils.runtime_prompt import mode_to_ui_defaults
+from utils.console_ui import mode_to_ui_defaults
 
 
 class RunEntrypointsTests(unittest.TestCase):

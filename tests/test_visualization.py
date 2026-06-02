@@ -4,8 +4,8 @@ import unittest
 
 import numpy as np
 
-from core.camera_detector import DetectionRecord
-from utils.visualization import _color_for_label, draw_detection_results
+from core.camera_runner import DetectionRecord
+from utils.draw_utils import _color_for_label, draw_detection_results
 
 
 class VisualizationTests(unittest.TestCase):

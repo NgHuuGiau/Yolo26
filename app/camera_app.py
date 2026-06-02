@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from utils.file_utils import ensure_project_directories
-from utils.runtime_prompt import BootProgress, print_runtime_dashboard
+from utils.console_ui import BootProgress, print_runtime_dashboard
 
 
 def build_runtime_arg_parser(description: str) -> argparse.ArgumentParser:

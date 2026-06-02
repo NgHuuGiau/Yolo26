@@ -11,10 +11,8 @@ try:
 except ImportError:  # pragma: no cover
     GPUtil = None
 
-try:
-    import torch
-except ImportError:  # pragma: no cover
-    torch = None
+torch = None
+TORCH_IMPORT_ERROR = None
 
 
 @dataclass
@@ -82,19 +80,38 @@ def _detect_gpu_from_gputil() -> tuple[str, float, int]:
     return primary.name, round(primary.memoryTotal / 1024, 2), len(gpus)
 
 
+def _load_torch():
+    global torch, TORCH_IMPORT_ERROR
+    if torch is not None or TORCH_IMPORT_ERROR is not None:
+        return torch
+    try:
+        import torch as imported_torch
+
+        torch = imported_torch
+    except Exception as exc:  # pragma: no cover
+        TORCH_IMPORT_ERROR = exc
+        torch = None
+    return torch
+
+
 def detect_hardware() -> HardwareInfo:
+    torch_module = torch if torch is not None else _load_torch()
     ram_gb = psutil.virtual_memory().total / (1024**3)
     gpu_name, vram_gb, gpu_count = _detect_gpu_from_gputil()
     gpu_hardware_available = gpu_count > 0
-    cuda_available = bool(torch and torch.cuda.is_available())
-    torch_version = getattr(torch, "__version__", "Khong co PyTorch") if torch is not None else "Khong co PyTorch"
-    torch_cuda_version = getattr(getattr(torch, "version", None), "cuda", None) if torch is not None else None
+    cuda_available = bool(torch_module and torch_module.cuda.is_available())
+    torch_version = getattr(torch_module, "__version__", "Khong co PyTorch") if torch_module is not None else "Khong co PyTorch"
+    torch_cuda_version = getattr(getattr(torch_module, "version", None), "cuda", None) if torch_module is not None else None
     torch_cuda_label = torch_cuda_version or "CPU-only"
     cuda_runtime_status = "Co" if cuda_available else "Khong"
     cuda_runtime_reason = "PyTorch CUDA runtime san sang"
 
-    if torch is None:
-        cuda_runtime_reason = "Chua cai PyTorch trong moi truong hien tai"
+    if torch_module is None:
+        cuda_runtime_reason = (
+            f"Khong khoi tao duoc PyTorch: {TORCH_IMPORT_ERROR}"
+            if TORCH_IMPORT_ERROR is not None
+            else "Chua cai PyTorch trong moi truong hien tai"
+        )
     elif gpu_hardware_available and not torch_cuda_version:
         cuda_runtime_reason = "PyTorch hien tai la ban CPU-only, chua ho tro CUDA"
     elif gpu_hardware_available and torch_cuda_version and not cuda_available:
@@ -102,12 +119,12 @@ def detect_hardware() -> HardwareInfo:
     elif not gpu_hardware_available:
         cuda_runtime_reason = "Khong phat hien GPU tuong thich de chay CUDA"
 
-    if cuda_available and torch is not None:
-        index = torch.cuda.current_device()
-        gpu_name = torch.cuda.get_device_name(index)
-        properties = torch.cuda.get_device_properties(index)
+    if cuda_available and torch_module is not None:
+        index = torch_module.cuda.current_device()
+        gpu_name = torch_module.cuda.get_device_name(index)
+        properties = torch_module.cuda.get_device_properties(index)
         vram_gb = properties.total_memory / (1024**3)
-        gpu_count = torch.cuda.device_count()
+        gpu_count = torch_module.cuda.device_count()
         gpu_hardware_available = gpu_count > 0
 
     return HardwareInfo(

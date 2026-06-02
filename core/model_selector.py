@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from core.hardware_detector import HardwareInfo
+from core.hardware_info import HardwareInfo
 from utils.file_utils import load_yaml_cached
 
 

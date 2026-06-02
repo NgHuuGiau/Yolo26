@@ -12,10 +12,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 from core.fallback_manager import iter_fallback_configs
 from core.model_selector import RuntimeConfig
-from core.yolo_loader import LoadedModel, load_yolo_model
+from core.model_loader import LoadedModel, load_yolo_model
 from utils.file_utils import ensure_project_directories
 from utils.logger import get_logger
-from utils.visualization import draw_detection_results
+from utils.draw_utils import draw_detection_results
 
 
 logger = get_logger(__name__)

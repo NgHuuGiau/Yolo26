@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.hardware_detector import HardwareInfo, detect_hardware
+from core.hardware_info import HardwareInfo, detect_hardware
 
 
 class HardwareDetectorTests(unittest.TestCase):
@@ -23,12 +23,12 @@ class HardwareDetectorTests(unittest.TestCase):
         self.assertIn("GPU: RTX 3050 Ti", report)
         self.assertIn("CUDA: Co", report)
 
-    @patch("core.hardware_detector.platform.release", return_value="11")
-    @patch("core.hardware_detector.platform.system", return_value="Windows")
-    @patch("core.hardware_detector._detect_cpu_name", return_value="Intel Core i7-11800H")
-    @patch("core.hardware_detector.psutil.virtual_memory")
-    @patch("core.hardware_detector._detect_gpu_from_gputil")
-    @patch("core.hardware_detector.torch")
+    @patch("core.hardware_info.platform.release", return_value="11")
+    @patch("core.hardware_info.platform.system", return_value="Windows")
+    @patch("core.hardware_info._detect_cpu_name", return_value="Intel Core i7-11800H")
+    @patch("core.hardware_info.psutil.virtual_memory")
+    @patch("core.hardware_info._detect_gpu_from_gputil")
+    @patch("core.hardware_info.torch")
     def test_detect_hardware_prefers_torch_cuda_details(
         self,
         torch_mock,
