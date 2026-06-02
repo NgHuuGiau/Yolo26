@@ -8,16 +8,6 @@ import yaml
 
 
 PROJECT_DIRS = [
-    "dataset/raw/images",
-    "dataset/raw/labels",
-    "dataset/processed/images/train",
-    "dataset/processed/images/val",
-    "dataset/processed/images/test",
-    "dataset/processed/labels/train",
-    "dataset/processed/labels/val",
-    "dataset/processed/labels/test",
-    "dataset/sample/images",
-    "dataset/sample/labels",
     "models/pretrained",
     "models/trained",
     "models/exported",
