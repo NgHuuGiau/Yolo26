@@ -9,16 +9,17 @@
 
 Đây là dự án nhận diện vật thể realtime bằng YOLO chạy trên desktop Python + OpenCV.
 
-Dự án có các chức năng chính:
+Dự án hiện có:
 
-- mở webcam và detect vật thể theo thời gian thực
+- giao diện terminal tiếng Việt
 - tự dò cấu hình máy trước khi chạy
-- tự chọn mức phù hợp theo `CPU`, `RAM`, `GPU`, `VRAM`, `CUDA`
-- hỗ trợ chụp mẫu train trực tiếp từ camera
-- có pipeline huấn luyện, validate và export model
-- có dashboard terminal tiếng Việt để báo trạng thái và lý do lỗi
+- tự gợi ý mức phù hợp theo `CPU`, `RAM`, `GPU`, `VRAM`, `PyTorch`, `CUDA`
+- hỗ trợ 5 model `YOLO26`
+- hỗ trợ chụp mẫu train trực tiếp từ webcam
+- pipeline train, validate, export riêng
+- test dashboard để kiểm tra toàn hệ thống
 
-Dự án hiện dùng họ model `YOLO26`:
+### 5 model YOLO26 đang dùng
 
 - `yolo26n.pt`
 - `yolo26s.pt`
@@ -26,26 +27,50 @@ Dự án hiện dùng họ model `YOLO26`:
 - `yolo26l.pt`
 - `yolo26x.pt`
 
-Menu người dùng hiện thấy 3 mức:
+### 3 mức người dùng sẽ thấy
 
 - `Cao nhất`
 - `Trung bình`
 - `Yếu`
 
-Nhưng bên trong hệ thống sẽ tự map sang model thật theo cấu hình máy.
+Hệ thống sẽ không ép model lớn nhất bằng mọi giá. Nó sẽ chọn mức cao nhất mà máy còn chạy ổn định.
 
 Ví dụ:
 
-- máy rất mạnh -> có thể lên `yolo26x.pt`
-- máy mạnh -> có thể lên `yolo26l.pt`
+- máy rất mạnh -> có thể dùng `yolo26x.pt`
+- máy mạnh -> có thể dùng `yolo26l.pt`
 - máy tầm trung như RTX 3050 Ti 4GB -> thường hợp `yolo26s.pt`
 - máy yếu hoặc CPU-only -> thường về `yolo26n.pt`
 
-Lưu ý:
+### Lưu ý quan trọng
 
 - repo này chỉ chứa code
 - repo này không kèm model `.pt`
 - repo này không kèm dataset
+- bạn phải tự đặt model vào `models/pretrained/`
+
+### Chạy nhanh nếu muốn vào việc ngay
+
+Nếu bạn muốn đi theo đường ngắn nhất, làm đúng thứ tự này:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+.\.venv\Scripts\python training\prepare_dataset.py
+.\.venv\Scripts\python training\download_models.py
+.\.venv\Scripts\python run_doctor.py
+.\.venv\Scripts\python run_app.py
+```
+
+Ý nghĩa:
+
+1. tạo môi trường riêng cho dự án
+2. cài thư viện
+3. tạo thư mục hệ thống
+4. tải đủ model YOLO26
+5. kiểm tra toàn hệ thống
+6. mở app camera
 
 ## 2. Cách cài
 
@@ -54,12 +79,18 @@ Lưu ý:
 - Windows + PowerShell
 - Python `3.10+`
 - webcam hoạt động bình thường
-- nếu muốn chạy GPU NVIDIA thì cần driver và PyTorch CUDA phù hợp
+- nếu muốn chạy GPU NVIDIA thì cần PyTorch CUDA phù hợp
 
 ### 2.2. Clone dự án
 
 ```powershell
 git clone <repo-url>
+cd D:\YOLO
+```
+
+Nếu bạn đã có sẵn thư mục dự án rồi thì chỉ cần:
+
+```powershell
 cd D:\YOLO
 ```
 
@@ -75,7 +106,7 @@ python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 ```
 
-Khi thành công, terminal sẽ có dạng:
+Khi thành công, bạn sẽ thấy:
 
 ```powershell
 (.venv) PS D:\YOLO>
@@ -89,14 +120,14 @@ pip install -r requirements.txt
 
 ### 2.6. Cài PyTorch
 
-#### Chạy CPU
+#### Nếu chỉ chạy CPU
 
 ```powershell
 .\\.venv\\Scripts\\python -m pip uninstall -y torch torchvision torchaudio
 .\\.venv\\Scripts\\python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 ```
 
-#### Chạy GPU NVIDIA CUDA
+#### Nếu chạy GPU NVIDIA CUDA
 
 ```powershell
 .\\.venv\\Scripts\\python -m pip uninstall -y torch torchvision torchaudio
@@ -109,15 +140,15 @@ pip install -r requirements.txt
 .\\.venv\\Scripts\\python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
 ```
 
-Nếu `torch.cuda.is_available()` là `False` thì hiện tại máy đang chạy CPU hoặc môi trường CUDA chưa đúng.
+Nếu `torch.cuda.is_available()` là `False` thì máy đang chạy CPU hoặc môi trường CUDA chưa đúng.
 
 ### 2.8. Tạo thư mục hệ thống
 
 ```powershell
-.\\.venv\\Scripts\\python training/prepare_dataset.py
+.\\.venv\\Scripts\\python training\prepare_dataset.py
 ```
 
-Lệnh này sẽ tạo sẵn:
+Lệnh này tạo sẵn:
 
 - `dataset/raw/images`
 - `dataset/raw/labels`
@@ -127,7 +158,7 @@ Lệnh này sẽ tạo sẵn:
 - `models/trained`
 - `models/exported`
 
-### 2.9. Cài model
+### 2.9. Cài model YOLO26
 
 Repo không kèm model. Bạn phải tự đặt model vào:
 
@@ -135,7 +166,7 @@ Repo không kèm model. Bạn phải tự đặt model vào:
 models/pretrained/
 ```
 
-Nên chuẩn bị đủ 5 file:
+Nên có đủ:
 
 - `models/pretrained/yolo26n.pt`
 - `models/pretrained/yolo26s.pt`
@@ -143,13 +174,64 @@ Nên chuẩn bị đủ 5 file:
 - `models/pretrained/yolo26l.pt`
 - `models/pretrained/yolo26x.pt`
 
-Nếu chưa đủ 5 file, hệ thống vẫn có thể chạy, nhưng sẽ không tận dụng được hết các mức.
+#### Tải đủ 5 model tự động
 
-### 2.10. Chạy test kiểm tra hệ thống
+```powershell
+.\\.venv\\Scripts\\python training\download_models.py
+```
+
+#### Tải lại dù file đã có
+
+```powershell
+.\\.venv\\Scripts\\python training\download_models.py --force
+```
+
+#### Tải riêng một vài model
+
+```powershell
+.\\.venv\\Scripts\\python training\download_models.py --models yolo26n.pt yolo26s.pt
+```
+
+### 2.10. Kiểm tra toàn hệ thống trước khi chạy
+
+```powershell
+.\\.venv\\Scripts\\python run_doctor.py
+```
+
+Lệnh này sẽ kiểm tra:
+
+- CPU, RAM, GPU, VRAM
+- PyTorch, CUDA
+- model YOLO26 đang có hay thiếu
+- dữ liệu raw đã có chưa
+- dữ liệu train/val đã split chưa
+- máy nên chạy mức nào
+
+### 2.11. Chạy test
 
 ```powershell
 .\\.venv\\Scripts\\python run_tests.py
 ```
+
+Trạng thái hiện tại:
+
+- `56/56 PASS`
+
+### 2.12. Sau khi cài xong nên kiểm tra theo thứ tự nào
+
+Tôi khuyên chạy theo đúng thứ tự này:
+
+```powershell
+.\.venv\Scripts\python run_doctor.py
+.\.venv\Scripts\python run_tests.py
+.\.venv\Scripts\python run_app.py
+```
+
+Giải thích:
+
+- `run_doctor.py`: kiểm tra máy, model, dataset, CUDA
+- `run_tests.py`: kiểm tra code và logic hệ thống
+- `run_app.py`: chạy webcam thật
 
 ## 3. Cách chạy
 
@@ -159,25 +241,36 @@ Nếu chưa đủ 5 file, hệ thống vẫn có thể chạy, nhưng sẽ khôn
 .\\.venv\\Scripts\\python run_app.py
 ```
 
+File này dùng khi:
+
+- bạn muốn mở camera theo luồng desktop chính
+- muốn chọn mode trực tiếp trước khi chạy
+- muốn dùng tính năng chụp mẫu bằng phím `T`
+
 ### 3.2. Chạy detect camera
 
 ```powershell
 .\\.venv\\Scripts\\python run_detect.py
 ```
 
-### 3.3. Chạy train
+File này dùng khi:
 
-```powershell
-.\\.venv\\Scripts\\python run_train.py
-```
+- bạn muốn chạy detect camera theo entrypoint detect riêng
+- muốn test riêng luồng detect mà không đi qua app chính
 
-### 3.4. Chạy test
+Thực tế 2 file này đều chạy webcam và detect. Khác nhau chủ yếu ở entrypoint và cách tổ chức luồng gọi.
 
-```powershell
-.\\.venv\\Scripts\\python run_tests.py
-```
+### 3.2A. Khi nào nên chạy file nào
 
-### 3.5. Chạy với mode cố định
+| File | Khi nào dùng |
+|---|---|
+| `run_app.py` | dùng hằng ngày để mở camera chính |
+| `run_detect.py` | dùng khi muốn test riêng luồng detect |
+| `run_train.py` | dùng khi bắt đầu huấn luyện |
+| `run_tests.py` | dùng khi muốn kiểm tra toàn bộ code |
+| `run_doctor.py` | dùng khi muốn kiểm tra máy đang thiếu gì |
+
+### 3.3. Chạy với mode cố định
 
 ```powershell
 .\\.venv\\Scripts\\python run_app.py --mode high
@@ -185,22 +278,35 @@ Nếu chưa đủ 5 file, hệ thống vẫn có thể chạy, nhưng sẽ khôn
 .\\.venv\\Scripts\\python run_app.py --mode low
 ```
 
-Giải thích:
+Ý nghĩa:
 
 - `high`: yêu cầu mức cao
 - `medium`: yêu cầu mức cân bằng
 - `low`: yêu cầu mức nhẹ
 
-Nhưng hệ thống vẫn tự hạ nếu phần cứng không chịu nổi.
+Hệ thống vẫn có thể tự hạ nếu phần cứng không chịu nổi.
 
-### 3.6. Đổi camera index
+### 3.4. Đổi camera index
 
 ```powershell
 .\\.venv\\Scripts\\python run_app.py --camera-index 1
 .\\.venv\\Scripts\\python run_detect.py --camera-index 1
 ```
 
-### 3.7. Chụp mẫu train từ camera
+### 3.5. Màu terminal nghĩa là gì
+
+- xanh lá: chạy được, trạng thái tốt
+- vàng: cảnh báo hoặc trung gian
+- đỏ: lỗi hoặc không đủ điều kiện chạy
+
+Nếu không chạy được, terminal sẽ hiện:
+
+- `LÝ DO`
+- `Lý do không chạy`
+- `GỢI Ý`
+- `LỆNH THỬ` hoặc `LỆNH NHANH`
+
+### 3.6. Chụp mẫu train từ camera
 
 Khi camera đang chạy:
 
@@ -220,19 +326,6 @@ Mẫu sẽ lưu vào:
 - `dataset/sample/images/`
 - `dataset/sample/labels/`
 
-### 3.8. Ý nghĩa màu terminal
-
-- xanh lá: chạy được, trạng thái tốt
-- vàng: cảnh báo hoặc trạng thái trung gian
-- đỏ: lỗi hoặc không đủ điều kiện chạy
-
-Nếu lệnh không chạy được, terminal sẽ hiện:
-
-- `LÝ DO`
-- `Lý do không chạy`
-- `GỢI Ý`
-- `LỆNH THỬ` hoặc `LỆNH NHANH`
-
 ## 4. Huấn luyện
 
 Toàn bộ lệnh huấn luyện chạy từ thư mục gốc dự án:
@@ -241,12 +334,38 @@ Toàn bộ lệnh huấn luyện chạy từ thư mục gốc dự án:
 PS D:\YOLO>
 ```
 
-### 4.1. Chuẩn bị dữ liệu
+### 4.1. Hiểu đúng 3 thư mục dữ liệu
 
-Bỏ dữ liệu vào:
+`dataset/sample/`
 
-- ảnh: `dataset/raw/images/`
-- label YOLO: `dataset/raw/labels/`
+- nơi chứa mẫu vừa chụp bằng phím `T`
+- không train trực tiếp từ đây
+
+`dataset/raw/`
+
+- nơi chứa dữ liệu gốc chính thức để train
+- nếu bạn đã có sẵn ảnh và `.txt`, hãy bỏ thẳng vào đây
+
+`dataset/processed/`
+
+- là dữ liệu đã được hệ thống chia sẵn thành:
+  - `train`
+  - `val`
+  - `test`
+- `run_train.py` train từ đây, không train trực tiếp từ `raw`
+
+Luồng đúng:
+
+```text
+sample -> raw -> processed -> train
+```
+
+### 4.2. Nếu bạn có sẵn ảnh và txt
+
+Bạn chỉ cần tự bỏ vào:
+
+- ảnh -> `dataset/raw/images/`
+- label -> `dataset/raw/labels/`
 
 Ví dụ:
 
@@ -267,13 +386,31 @@ Ví dụ:
 0 0.512 0.438 0.220 0.310
 ```
 
-### 4.2. Kiểm tra dataset raw
+### 4.3. Nếu bạn chụp bằng phím `T`
+
+Chụp xong dữ liệu sẽ nằm ở:
+
+- `dataset/sample/images/`
+- `dataset/sample/labels/`
+
+Sau đó chuyển sang `raw` bằng:
 
 ```powershell
-.\\.venv\\Scripts\\python training/validate_dataset.py
+.\\.venv\\Scripts\\python training\promote_samples.py
 ```
 
-Lệnh này sẽ báo:
+Lệnh này sẽ copy:
+
+- `dataset/sample/images/*` -> `dataset/raw/images/`
+- `dataset/sample/labels/*` -> `dataset/raw/labels/`
+
+### 4.4. Kiểm tra dataset raw
+
+```powershell
+.\\.venv\\Scripts\\python training\validate_dataset.py
+```
+
+Lệnh này báo:
 
 - tổng số ảnh raw
 - ảnh hợp lệ
@@ -282,13 +419,13 @@ Lệnh này sẽ báo:
 - label lỗi
 - label mồ côi
 
-### 4.3. Chia train / val / test
+### 4.5. Chia train / val / test
 
 ```powershell
-.\\.venv\\Scripts\\python training/split_dataset.py
+.\\.venv\\Scripts\\python training\split_dataset.py
 ```
 
-Sau bước này dữ liệu train thật sẽ nằm ở:
+Sau bước này dữ liệu sẽ nằm ở:
 
 - `dataset/processed/images/train`
 - `dataset/processed/images/val`
@@ -297,7 +434,7 @@ Sau bước này dữ liệu train thật sẽ nằm ở:
 - `dataset/processed/labels/val`
 - `dataset/processed/labels/test`
 
-### 4.4. Kiểm tra `training/data.yaml`
+### 4.6. Kiểm tra `training/data.yaml`
 
 File này map `class_id` sang tên class thật.
 
@@ -314,7 +451,7 @@ names:
   1: helmet
 ```
 
-### 4.5. Kiểm tra `training/train_config.yaml`
+### 4.7. Kiểm tra `training/train_config.yaml`
 
 Các mục quan trọng:
 
@@ -332,7 +469,7 @@ Nếu máy yếu hoặc thiếu VRAM, nên giảm:
 - `imgsz`
 - `batch`
 
-### 4.6. Chạy train
+### 4.8. Chạy train
 
 ```powershell
 .\\.venv\\Scripts\\python run_train.py
@@ -341,44 +478,65 @@ Nếu máy yếu hoặc thiếu VRAM, nên giảm:
 Lệnh này sẽ:
 
 1. đọc `training/train_config.yaml`
-2. kiểm tra dataset đã split
+2. kiểm tra dữ liệu đã split
 3. load model train chính
 4. fallback sang model nhẹ hơn nếu cần
 5. copy `best.pt` về `models/trained/best.pt`
 
-### 4.7. Validate model
+### 4.9. Validate model
 
 ```powershell
-.\\.venv\\Scripts\\python training/validate_model.py
+.\\.venv\\Scripts\\python training\validate_model.py
 ```
 
-### 4.8. Export model
+### 4.10. Export model
 
 ```powershell
-.\\.venv\\Scripts\\python training/export_model.py
+.\\.venv\\Scripts\\python training\export_model.py
 ```
 
-### 4.9. Chuỗi lệnh đầy đủ
+### 4.11. Chuỗi lệnh huấn luyện đầy đủ
+
+Nếu bạn đã có sẵn ảnh và txt:
 
 ```powershell
-.\\.venv\\Scripts\\python training/prepare_dataset.py
-.\\.venv\\Scripts\\python training/validate_dataset.py
-.\\.venv\\Scripts\\python training/split_dataset.py
+.\\.venv\\Scripts\\python training\validate_dataset.py
+.\\.venv\\Scripts\\python training\split_dataset.py
 .\\.venv\\Scripts\\python run_train.py
-.\\.venv\\Scripts\\python training/validate_model.py
-.\\.venv\\Scripts\\python training/export_model.py
+.\\.venv\\Scripts\\python training\validate_model.py
+.\\.venv\\Scripts\\python training\export_model.py
 ```
 
-### 4.10. Khi nào lệnh train không chạy được
+Nếu bạn chụp từ camera bằng `T`:
 
-| Lệnh | Lý do thường gặp |
-|---|---|
-| `training/prepare_dataset.py` | hiếm khi lỗi, chủ yếu chỉ tạo thư mục |
-| `training/validate_dataset.py` | chưa có ảnh trong `dataset/raw/images` |
-| `training/split_dataset.py` | dataset raw rỗng hoặc raw không hợp lệ |
-| `run_train.py` | chưa có `dataset/processed/images/train` hoặc `val` |
-| `training/validate_model.py` | chưa có `dataset/processed/images/val` |
-| `training/export_model.py` | chưa có `models/trained/best.pt` |
+```powershell
+.\\.venv\\Scripts\\python training\promote_samples.py
+.\\.venv\\Scripts\\python training\validate_dataset.py
+.\\.venv\\Scripts\\python training\split_dataset.py
+.\\.venv\\Scripts\\python run_train.py
+```
+
+### 4.12. Hiểu đúng ai tự làm gì, ai phải làm tay
+
+Bạn phải tự làm:
+
+- tự bỏ ảnh + txt vào `dataset/raw/` nếu đã có sẵn dữ liệu
+- hoặc tự chụp mẫu bằng `T`
+- hoặc tự chạy `promote_samples.py` để đưa mẫu từ `sample` sang `raw`
+
+Hệ thống tự làm:
+
+- kiểm tra dataset raw
+- chia raw sang processed
+- train từ processed
+- validate model
+- export model
+
+Nói ngắn:
+
+- có sẵn ảnh + txt -> bạn tự bỏ vào `raw`
+- chụp trong app -> hệ thống tự lưu vào `sample`
+- muốn train -> phải đi qua `raw` rồi `processed`
 
 ## 5. Giải thích cấu trúc thư mục
 
@@ -400,7 +558,8 @@ YOLO/
 |-- run_app.py
 |-- run_detect.py
 |-- run_train.py
-`-- run_tests.py
+|-- run_tests.py
+`-- run_doctor.py
 ```
 
 ### `app/`
@@ -409,50 +568,54 @@ YOLO/
 
 ### `config/`
 
-- chứa YAML cấu hình hệ thống
+- YAML cấu hình hệ thống
 
 ### `core/`
 
-- chứa lõi xử lý detect
-- chọn runtime theo cấu hình máy
+- lõi detect
+- dò phần cứng
+- chọn runtime
 - load model
 - chạy camera realtime
 
 ### `dataset/`
 
+- `sample/`: mẫu chụp từ camera
 - `raw/`: dữ liệu gốc để train
 - `processed/`: dữ liệu đã chia train/val/test
-- `sample/`: mẫu chụp nhanh từ camera
 
 ### `docs/`
 
-- tài liệu phụ của dự án
+- tài liệu phụ
 
 ### `models/`
 
 - `pretrained/`: model local bạn tự đặt vào
 - `trained/`: model train xong, quan trọng nhất là `best.pt`
-- `exported/`: model export ra để deploy
+- `exported/`: model export
 
 ### `output/`
 
-- ảnh, log, video sinh ra trong lúc chạy
+- ảnh, log, video sinh ra khi chạy
 
 ### `runs/`
 
-- artifact do Ultralytics sinh ra khi train / val / detect
+- artifact do Ultralytics sinh ra
 
 ### `tests/`
 
-- test tự động của dự án
+- test tự động
 
 ### `training/`
 
-- pipeline huấn luyện
-- chia dataset
-- validate dataset
-- validate model
-- export model
+- `prepare_dataset.py`: tạo thư mục dataset
+- `validate_dataset.py`: kiểm tra raw
+- `split_dataset.py`: chia train/val/test
+- `train_model.py`: logic train chính
+- `validate_model.py`: validate model
+- `export_model.py`: export model
+- `download_models.py`: tải model YOLO26
+- `promote_samples.py`: chuyển mẫu từ sample sang raw
 
 ### `utils/`
 
@@ -460,14 +623,15 @@ YOLO/
 
 ### Các file chạy chính
 
-- `run_app.py`: chạy camera app chính
+- `run_app.py`: chạy app camera chính
 - `run_detect.py`: chạy detect camera
 - `run_train.py`: chạy train
-- `run_tests.py`: chạy toàn bộ test
+- `run_tests.py`: chạy test dashboard
+- `run_doctor.py`: kiểm tra sức khỏe toàn hệ thống
 
 ## 6. Trạng thái hiện tại
 
 - terminal tiếng Việt có dấu
 - menu chọn mode đã gợi ý theo cấu hình máy
 - hỗ trợ đủ logic cho `YOLO26 n/s/m/l/x`
-- `run_tests.py` hiện pass `50/50`
+- `run_tests.py` hiện pass `56/56`
