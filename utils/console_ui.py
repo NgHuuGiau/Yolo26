@@ -115,6 +115,27 @@ def _score_color(score: int) -> str:
     return GREEN if score >= 70 else YELLOW if score >= 40 else RED
 
 
+def _usage_color(percent: float | None) -> str:
+    if percent is None:
+        return YELLOW
+    if percent < 60:
+        return GREEN
+    if percent < 85:
+        return YELLOW
+    return RED
+
+
+def _usage_row(label: str, percent: float | None) -> str:
+    if percent is None:
+        return _row(label, "Không rõ", YELLOW, bounded=False)
+    return _row(
+        label,
+        f"{percent:5.1f}% {progress_bar_colored(round(percent), width=12)}",
+        _usage_color(percent),
+        bounded=False,
+    )
+
+
 def progress_bar_colored(score: int, width: int | None = None) -> str:
     normalized = max(0, min(100, score))
     if width is None:

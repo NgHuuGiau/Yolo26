@@ -22,10 +22,12 @@ class HardwareDetectorTests(unittest.TestCase):
         self.assertIn("CPU: Intel Core i7", report)
         self.assertIn("GPU: RTX 3050 Ti", report)
         self.assertIn("CUDA: Có", report)
+        self.assertIn("CPU dùng:", report)
 
     @patch("core.hardware_info.platform.release", return_value="11")
     @patch("core.hardware_info.platform.system", return_value="Windows")
     @patch("core.hardware_info._detect_cpu_name", return_value="Intel Core i7-11800H")
+    @patch("core.hardware_info.psutil.cpu_percent", return_value=18.5)
     @patch("core.hardware_info.psutil.virtual_memory")
     @patch("core.hardware_info._detect_gpu_from_gputil")
     @patch("core.hardware_info.torch")
@@ -34,12 +36,13 @@ class HardwareDetectorTests(unittest.TestCase):
         torch_mock,
         gpu_detect_mock,
         virtual_memory_mock,
+        _cpu_percent_mock,
         _cpu_mock,
         _system_mock,
         _release_mock,
     ) -> None:
-        virtual_memory_mock.return_value = SimpleNamespace(total=16 * (1024**3))
-        gpu_detect_mock.return_value = ("Fallback GPU", 2.0, 1)
+        virtual_memory_mock.return_value = SimpleNamespace(total=16 * (1024**3), percent=42.0)
+        gpu_detect_mock.return_value = ("Fallback GPU", 2.0, 1, 25.0, 50.0)
         torch_mock.cuda.is_available.return_value = True
         torch_mock.cuda.current_device.return_value = 0
         torch_mock.cuda.get_device_name.return_value = "NVIDIA GeForce RTX 3050 Ti Laptop GPU"
@@ -55,3 +58,7 @@ class HardwareDetectorTests(unittest.TestCase):
         self.assertEqual(info.gpu_count, 1)
         self.assertEqual(info.os_name, "Windows 11")
         self.assertEqual(info.summary()["gpu_count"], 1)
+        self.assertEqual(info.cpu_usage_percent, 18.5)
+        self.assertEqual(info.ram_usage_percent, 42.0)
+        self.assertEqual(info.gpu_usage_percent, 25.0)
+        self.assertEqual(info.vram_usage_percent, 50.0)

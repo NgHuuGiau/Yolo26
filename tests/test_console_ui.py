@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from utils.console_ui import explain_runtime_failure, progress_bar_colored
+from utils.console_ui import _usage_row, explain_runtime_failure, progress_bar_colored
 
 
 class ConsoleUiTests(unittest.TestCase):
@@ -18,3 +18,12 @@ class ConsoleUiTests(unittest.TestCase):
         self.assertTrue("webcam" in reason.lower() or "camera" in reason.lower())
         self.assertTrue(any("camera index" in suggestion.lower() or "webcam" in suggestion.lower() for suggestion in suggestions))
         self.assertTrue(any("--camera-index 1" in command for command in commands))
+
+    def test_usage_row_renders_percent_and_bar(self) -> None:
+        row = _usage_row("CPU", 42.0)
+        self.assertIn("42.0%", row)
+        self.assertIn("█", row)
+
+    def test_usage_row_handles_unknown_value(self) -> None:
+        row = _usage_row("GPU", None)
+        self.assertIn("Không rõ", row)

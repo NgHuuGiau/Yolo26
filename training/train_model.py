@@ -21,6 +21,13 @@ try:
 except ModuleNotFoundError:
     from terminal_ui import CYAN, GREEN, RED, YELLOW, command_row, header, line, row, rule, section
 
+try:
+    from training.auto_label_raw import auto_label_raw_images
+    from training.split_dataset import _copy_split, _reset_processed_dirs, _split_items, audit_raw_dataset
+except ModuleNotFoundError:
+    from auto_label_raw import auto_label_raw_images
+    from split_dataset import _copy_split, _reset_processed_dirs, _split_items, audit_raw_dataset
+
 YOLO = None
 ULTRALYTICS_IMPORT_ERROR = None
 
@@ -69,6 +76,38 @@ def _ensure_training_dataset_ready() -> None:
         )
 
 
+def _auto_prepare_training_dataset() -> dict[str, object]:
+    ensure_project_directories()
+    report = {
+        "raw_images": 0,
+        "auto_labeled": 0,
+        "eligible": 0,
+        "no_detection": [],
+    }
+    audit = audit_raw_dataset()
+    report["raw_images"] = audit.raw_image_count
+    if audit.raw_image_count == 0:
+        return report
+
+    needs_auto_label = bool(audit.missing_labels)
+    if needs_auto_label:
+        auto_report = auto_label_raw_images(overwrite=False, conf=0.25, device="cpu")
+        report["auto_labeled"] = int(auto_report.get("generated", 0))
+        report["no_detection"] = list(auto_report.get("no_detection", []))
+        audit = audit_raw_dataset()
+
+    eligible = audit.eligible
+    report["eligible"] = len(eligible)
+    if not eligible:
+        return report
+
+    _reset_processed_dirs()
+    split_map = _split_items(eligible)
+    for split_name, items in split_map.items():
+        _copy_split(split_name, items)
+    return report
+
+
 def _copy_best_weight(run_dir: Path) -> None:
     best_weight = run_dir / "weights" / "best.pt"
     target = TRAINED_BEST_MODEL_PATH
@@ -111,6 +150,7 @@ def _print_dataset_ready_help(error: FileNotFoundError) -> None:
 
 def main() -> None:
     ensure_project_directories()
+    _auto_prepare_training_dataset()
     try:
         _ensure_training_dataset_ready()
     except FileNotFoundError as exc:

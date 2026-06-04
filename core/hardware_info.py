@@ -29,14 +29,26 @@ class HardwareInfo:
     cuda_runtime_status: str = "Không"
     cuda_runtime_reason: str = "Chưa kiểm tra"
     gpu_hardware_available: bool = False
+    cpu_usage_percent: float | None = None
+    ram_usage_percent: float | None = None
+    gpu_usage_percent: float | None = None
+    vram_usage_percent: float | None = None
 
     def pretty_report(self) -> str:
+        cpu_usage = f"{self.cpu_usage_percent:.1f}%" if self.cpu_usage_percent is not None else "Không rõ"
+        ram_usage = f"{self.ram_usage_percent:.1f}%" if self.ram_usage_percent is not None else "Không rõ"
+        gpu_usage = f"{self.gpu_usage_percent:.1f}%" if self.gpu_usage_percent is not None else "Không rõ"
+        vram_usage = f"{self.vram_usage_percent:.1f}%" if self.vram_usage_percent is not None else "Không rõ"
         return (
             "===== KIỂM TRA CẤU HÌNH =====\n"
             f"CPU: {self.cpu_name}\n"
             f"RAM: {self.ram_gb:.1f} GB\n"
             f"GPU: {self.gpu_name}\n"
             f"VRAM: {self.vram_gb:.1f} GB\n"
+            f"CPU dùng: {cpu_usage}\n"
+            f"RAM dùng: {ram_usage}\n"
+            f"GPU dùng: {gpu_usage}\n"
+            f"VRAM dùng: {vram_usage}\n"
             f"CUDA: {'Có' if self.cuda_available else 'Không'}\n"
             f"PyTorch: {self.torch_version}\n"
             f"CUDA build: {self.torch_cuda_version}\n"
@@ -57,6 +69,10 @@ class HardwareInfo:
             "cuda_runtime_status": self.cuda_runtime_status,
             "cuda_runtime_reason": self.cuda_runtime_reason,
             "gpu_hardware_available": self.gpu_hardware_available,
+            "cpu_usage_percent": round(self.cpu_usage_percent, 2) if self.cpu_usage_percent is not None else None,
+            "ram_usage_percent": round(self.ram_usage_percent, 2) if self.ram_usage_percent is not None else None,
+            "gpu_usage_percent": round(self.gpu_usage_percent, 2) if self.gpu_usage_percent is not None else None,
+            "vram_usage_percent": round(self.vram_usage_percent, 2) if self.vram_usage_percent is not None else None,
         }
 
 
@@ -67,17 +83,19 @@ def _detect_cpu_name() -> str:
     return platform.uname().processor or "Không rõ CPU"
 
 
-def _detect_gpu_from_gputil() -> tuple[str, float, int]:
+def _detect_gpu_from_gputil() -> tuple[str, float, int, float | None, float | None]:
     if GPUtil is None:
-        return "Không phát hiện GPU", 0.0, 0
+        return "Không phát hiện GPU", 0.0, 0, None, None
     try:
         gpus: List = GPUtil.getGPUs()
     except Exception:
-        return "Không phát hiện GPU", 0.0, 0
+        return "Không phát hiện GPU", 0.0, 0, None, None
     if not gpus:
-        return "Không phát hiện GPU", 0.0, 0
+        return "Không phát hiện GPU", 0.0, 0, None, None
     primary = gpus[0]
-    return primary.name, round(primary.memoryTotal / 1024, 2), len(gpus)
+    gpu_usage_percent = float(primary.load) * 100 if getattr(primary, "load", None) is not None else None
+    vram_usage_percent = float(primary.memoryUtil) * 100 if getattr(primary, "memoryUtil", None) is not None else None
+    return primary.name, round(primary.memoryTotal / 1024, 2), len(gpus), gpu_usage_percent, vram_usage_percent
 
 
 def _load_torch():
@@ -96,8 +114,11 @@ def _load_torch():
 
 def detect_hardware() -> HardwareInfo:
     torch_module = torch if torch is not None else _load_torch()
-    ram_gb = psutil.virtual_memory().total / (1024**3)
-    gpu_name, vram_gb, gpu_count = _detect_gpu_from_gputil()
+    memory = psutil.virtual_memory()
+    ram_gb = memory.total / (1024**3)
+    ram_usage_percent = float(getattr(memory, "percent", 0.0))
+    cpu_usage_percent = float(psutil.cpu_percent(interval=0.15))
+    gpu_name, vram_gb, gpu_count, gpu_usage_percent, vram_usage_percent = _detect_gpu_from_gputil()
     gpu_hardware_available = gpu_count > 0
     cuda_available = bool(torch_module and torch_module.cuda.is_available())
     torch_version = getattr(torch_module, "__version__", "Không có PyTorch") if torch_module is not None else "Không có PyTorch"
@@ -140,4 +161,29 @@ def detect_hardware() -> HardwareInfo:
         cuda_runtime_status=cuda_runtime_status,
         cuda_runtime_reason=cuda_runtime_reason,
         gpu_hardware_available=gpu_hardware_available,
+        cpu_usage_percent=cpu_usage_percent,
+        ram_usage_percent=ram_usage_percent,
+        gpu_usage_percent=gpu_usage_percent,
+        vram_usage_percent=vram_usage_percent,
     )
+
+
+def get_live_usage_snapshot() -> dict[str, float | None]:
+    try:
+        memory = psutil.virtual_memory()
+        ram_usage_percent = float(getattr(memory, "percent", 0.0))
+    except Exception:
+        ram_usage_percent = None
+
+    try:
+        cpu_usage_percent = float(psutil.cpu_percent(interval=None))
+    except Exception:
+        cpu_usage_percent = None
+
+    _gpu_name, _vram_gb, _gpu_count, gpu_usage_percent, vram_usage_percent = _detect_gpu_from_gputil()
+    return {
+        "cpu_usage_percent": cpu_usage_percent,
+        "ram_usage_percent": ram_usage_percent,
+        "gpu_usage_percent": gpu_usage_percent,
+        "vram_usage_percent": vram_usage_percent,
+    }

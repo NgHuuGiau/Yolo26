@@ -14,6 +14,7 @@ from core.camera_runner import (
     CapturePreparationState,
     DetectionRecord,
     STABLE_FRAMES_REQUIRED,
+    _next_sample_sequence_name,
     _sanitize_sample_name,
     _update_capture_preparation,
 )
@@ -150,6 +151,8 @@ class CameraDetectorTests(unittest.TestCase):
                 image_path, label_path = detector.save_current_training_sample()
                 self.assertTrue(image_path.exists())
                 self.assertTrue(label_path.exists())
+                self.assertEqual(image_path.name, "1.jpg")
+                self.assertEqual(label_path.name, "1.txt")
                 self.assertEqual(
                     label_path.read_text(encoding="utf-8").strip(),
                     "3 0.350000 0.350000 0.500000 0.500000",
@@ -168,14 +171,32 @@ class CameraDetectorTests(unittest.TestCase):
                 import os
 
                 os.chdir(temp_dir)
+                Path("training").mkdir(parents=True, exist_ok=True)
+                Path("training/data.yaml").write_text("names:\n  0: person\n", encoding="utf-8")
                 image_path, label_path = detector.save_current_training_sample("Nguoi doi non 01")
-                self.assertTrue(image_path.name.startswith("Nguoi_doi_non_01_"))
+                self.assertEqual(image_path.name, "Nguoi_doi_non_01.jpg")
                 self.assertEqual(label_path.read_text(encoding="utf-8"), "")
+                self.assertIn("Nguoi_doi_non_01", Path("training/data.yaml").read_text(encoding="utf-8"))
             finally:
                 os.chdir(previous_cwd)
 
     def test_sanitize_sample_name_replaces_invalid_chars(self) -> None:
         self.assertEqual(_sanitize_sample_name("  nguoi doi non/01  "), "nguoi_doi_non_01")
+
+    def test_next_sample_sequence_name_increments_from_existing_numeric_files(self) -> None:
+        with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:
+            previous_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(temp_dir)
+                Path("dataset/sample/images").mkdir(parents=True, exist_ok=True)
+                Path("dataset/sample/labels").mkdir(parents=True, exist_ok=True)
+                Path("dataset/sample/images/1.jpg").write_text("x", encoding="utf-8")
+                Path("dataset/sample/labels/2.txt").write_text("x", encoding="utf-8")
+                self.assertEqual(_next_sample_sequence_name(), "3")
+            finally:
+                os.chdir(previous_cwd)
 
     @patch("core.camera_runner.cv2.VideoCapture")
     @patch("core.camera_runner.load_yolo_model")
@@ -296,3 +317,18 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertGreater(remaining, 0.0)
         self.assertEqual(next_state.stable_since, 20.0)
         self.assertEqual(next_state.stable_frame_count, STABLE_FRAMES_REQUIRED)
+
+    def test_capture_preparation_tolerates_small_webcam_noise(self) -> None:
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        frame[20:24, 20:24] = 8
+        state = CapturePreparationState(
+            stable_since=20.0,
+            previous_gray=np.zeros((80, 80), dtype=np.uint8),
+        )
+
+        next_state, ready, remaining = _update_capture_preparation(state, frame, now=22.0)
+
+        self.assertFalse(ready)
+        self.assertEqual(remaining, CAPTURE_STABILITY_SECONDS)
+        self.assertGreaterEqual(next_state.stable_frame_count, 1)
+        self.assertLess(next_state.motion_score, 2.8)
