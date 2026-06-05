@@ -100,30 +100,24 @@ def _profile_tuple(profile_name: str, settings: dict) -> tuple[str, str, int]:
 def _gpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int]:
     vram = float(hardware.vram_gb) + VRAM_EPSILON_GB
     if profile_name == "high":
-        if vram >= 12:
-            return "yolo11x.pt", 960
-        if vram >= 8:
-            return "yolo11l.pt", 896
-        if vram >= 4:
-            return "yolo11m.pt", 768
         if vram >= 3:
             return "yolo11s.pt", 640
         return "yolo11n.pt", 512
     if profile_name == "medium":
-        if vram >= 8:
-            return "yolo11m.pt", 768
-        if vram >= 3.5:
-            return "yolo11s.pt", 640
+        if vram >= 3:
+            return "yolo11n.pt", 512
+        return "yolo11n.pt", 416
+    if vram < LOW_PROFILE_MIN_GPU_VRAM_GB:
         return "yolo11n.pt", 512
-    return "yolo11n.pt", 416
+    return "yolo11n.pt", 320
 
 
 def _cpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int]:
     ram = float(hardware.ram_gb)
     if profile_name == "high":
-        return ("yolo11s.pt", 416) if ram >= 16 else ("yolo11n.pt", 416)
+        return ("yolo11n.pt", 416) if ram >= 16 else ("yolo11n.pt", 320)
     if profile_name in {"medium", "fallback_cpu"}:
-        return "yolo11n.pt", 416
+        return "yolo11n.pt", 320
     return "yolo11n.pt", 320
 
 

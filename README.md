@@ -85,6 +85,21 @@ Ví dụ:
 | GPU dưới 3GB VRAM | `yolo11n.pt` / GPU / `imgsz 512` | `yolo11n.pt` / GPU / `imgsz 512` | `yolo11n.pt` / CPU / `imgsz 320` |
 | Không có CUDA / CPU-only | `yolo11n.pt` hoặc `yolo11s.pt` / CPU / `imgsz 416` | `yolo11n.pt` / CPU / `imgsz 416` | `yolo11n.pt` / CPU / `imgsz 320` |
 
+### Bảng tối ưu FPS theo chế độ
+
+| Chế độ | Nhịp detect | Cách hiển thị frame xen kẽ | Nhịp cập nhật panel phụ | Tối ưu nền đang bật |
+|---|---|---|---|---|
+| `High` | detect mỗi `1` frame | vẽ detection mới liên tục | nhanh nhất trong 3 chế độ | worker thread infer, cache panel `BGR`, giảm convert thừa |
+| `Medium` | detect mỗi `3` frame | giữ box gần nhất để nhìn vẫn mượt | chậm hơn `High` để giảm tải CPU | worker thread infer, cache panel `BGR`, `sidebar/stat/chat` refresh thưa hơn |
+| `Low` | detect mỗi `5` frame | giữ box gần nhất để ưu tiên FPS | chậm nhất để ưu tiên mượt | worker thread infer, cache panel `BGR`, giảm redraw panel phụ mạnh nhất |
+
+Ghi chú:
+
+- khung camera không đổi theo `High / Medium / Low`
+- giao diện đầy đủ vẫn giữ nguyên khi chạy bình thường
+- khi cửa sổ thu nhỏ, app chỉ hiện camera; khi `maximize`, app hiện full giao diện
+- `Medium` và `Low` ưu tiên FPS bằng cách giảm số lần gọi YOLO và giảm số lần redraw panel phụ
+
 ### Lưu ý quan trọng
 
 - repo này chỉ chứa code

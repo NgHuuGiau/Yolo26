@@ -71,6 +71,9 @@ PANEL_CACHE: dict[str, dict[str, object]] = {
     "chat": {"image": None, "key": None, "ts": 0.0},
     "settings": {"image": None, "key": None, "ts": 0.0},
     "live_background": {"image": None, "key": None, "ts": 0.0},
+    "sidebar_bgr": {"image": None, "key": None, "ts": 0.0},
+    "resource_bgr": {"image": None, "key": None, "ts": 0.0},
+    "chat_bgr": {"image": None, "key": None, "ts": 0.0},
 }
 LIGHT_BG = (24, 24, 24)
 LIGHT_BG_SOFT = (37, 37, 38)
@@ -105,9 +108,6 @@ TEXTS = {
         "keep_camera_stable": "Giữ camera ổn định khi chụp.",
         "waiting_analysis": "Đang chờ phân tích...",
         "analysis_placeholder": "Kết quả chụp ảnh hoặc AI sẽ hiển thị tại đây.",
-        "toggle_performance_hint": "Nhấn P để bật/tắt chế độ mượt.",
-        "performance_mode_on": "Chế độ hiệu năng đang bật.",
-        "performance_mode_off": "Chế độ hiệu năng đã tắt.",
         "choose_image_title": "Chọn ảnh từ máy",
         "unknown": "Không rõ",
         "settings_title": "Cài đặt hệ thống",
@@ -155,9 +155,6 @@ TEXTS = {
         "keep_camera_stable": "Keep the camera stable while capturing.",
         "waiting_analysis": "Waiting for analysis...",
         "analysis_placeholder": "Image capture or AI output will appear here.",
-        "toggle_performance_hint": "Press P to toggle performance mode.",
-        "performance_mode_on": "Performance mode is enabled.",
-        "performance_mode_off": "Performance mode is disabled.",
         "choose_image_title": "Choose images from your computer",
         "unknown": "Unknown",
         "settings_title": "System settings",
@@ -1625,29 +1622,43 @@ def _cached_panel_array(
     return image
 
 
+def _cached_panel_bgr(
+    cache_name: str,
+    key: tuple[object, ...],
+    refresh_seconds: float,
+    render_fn,
+) -> np.ndarray:
+    return _cached_panel_array(
+        cache_name,
+        key,
+        refresh_seconds,
+        lambda: cv2.cvtColor(np.array(render_fn()), cv2.COLOR_RGB2BGR),
+    )
+
+
 def _runtime_refresh_profile(profile_name: str) -> dict[str, float]:
     if profile_name == "high":
         return {
-            "metrics": 0.45,
-            "sidebar": 1.2,
-            "resource": 0.45,
-            "chat": 0.25,
-            "settings": 0.45,
+            "metrics": 0.5,
+            "sidebar": 1.3,
+            "resource": 0.55,
+            "chat": 0.3,
+            "settings": 0.55,
         }
     if profile_name == "medium":
         return {
-            "metrics": 0.8,
+            "metrics": 0.75,
             "sidebar": 2.2,
-            "resource": 1.0,
+            "resource": 0.95,
             "chat": 0.55,
-            "settings": 1.0,
+            "settings": 0.95,
         }
     return {
-        "metrics": 1.4,
-        "sidebar": 3.0,
-        "resource": 1.5,
-        "chat": 0.9,
-        "settings": 1.5,
+        "metrics": 1.0,
+        "sidebar": 2.8,
+        "resource": 1.25,
+        "chat": 0.75,
+        "settings": 1.2,
     }
 
 
@@ -1707,35 +1718,32 @@ def _render_live_background_panel(
 ) -> np.ndarray:
     layout = np.full((total_height, total_width, 3), LIGHT_BG, dtype=np.uint8)
     sidebar_key = (SIDEBAR_SELECTED_VIEW, CURRENT_LANGUAGE, CURRENT_THEME, SIDEBAR_WIDTH, total_height)
-    sidebar_panel = _cached_panel_image(
-        "sidebar",
+    sidebar_bgr = _cached_panel_bgr(
+        "sidebar_bgr",
         sidebar_key,
         refresh_profile["sidebar"],
         lambda: _render_data_sidebar_panel(SIDEBAR_WIDTH, total_height),
     )
-    sidebar_bgr = cv2.cvtColor(np.array(sidebar_panel), cv2.COLOR_RGB2BGR)
     layout[:, 0:SIDEBAR_WIDTH] = sidebar_bgr
 
     camera_left = SIDEBAR_WIDTH + LAYOUT_GAP
     resource_left = camera_left + frame_width + LAYOUT_GAP
     resource_key = (CURRENT_THEME, RIGHT_PANEL_WIDTH, total_height, tuple(resource_lines), fps_text, tuple(status_lines))
-    resource_panel = _cached_panel_image(
-        "resource",
+    resource_bgr = _cached_panel_bgr(
+        "resource_bgr",
         resource_key,
         refresh_profile["resource"],
         lambda: _render_resource_sidebar_panel(RIGHT_PANEL_WIDTH, total_height, resource_lines, fps_text, status_lines),
     )
-    resource_bgr = cv2.cvtColor(np.array(resource_panel), cv2.COLOR_RGB2BGR)
     layout[:, resource_left : resource_left + RIGHT_PANEL_WIDTH] = resource_bgr
 
     chat_key = (CURRENT_LANGUAGE, CURRENT_THEME, frame_width, BOTTOM_CHAT_HEIGHT, chat_title, tuple(chat_lines))
-    chat_panel = _cached_panel_image(
-        "chat",
+    chat_bgr = _cached_panel_bgr(
+        "chat_bgr",
         chat_key,
         refresh_profile["chat"],
         lambda: _render_chat_box_panel(frame_width, BOTTOM_CHAT_HEIGHT, chat_title, chat_lines),
     )
-    chat_bgr = cv2.cvtColor(np.array(chat_panel), cv2.COLOR_RGB2BGR)
     chat_top = frame_height + LAYOUT_GAP
     layout[chat_top : chat_top + BOTTOM_CHAT_HEIGHT, camera_left : camera_left + frame_width] = chat_bgr
     return layout
@@ -1979,14 +1987,6 @@ def _compose_camera_only_layout(frame: np.ndarray) -> np.ndarray:
     return _scaled_camera_frame(frame)
 
 
-def _preferred_desktop_layout_size(frame: np.ndarray) -> tuple[int, int]:
-    scaled = _scaled_camera_frame(frame)
-    frame_height, frame_width = scaled.shape[:2]
-    total_width = SIDEBAR_WIDTH + LAYOUT_GAP + frame_width + LAYOUT_GAP + RIGHT_PANEL_WIDTH
-    total_height = frame_height + LAYOUT_GAP + BOTTOM_CHAT_HEIGHT
-    return total_width, total_height
-
-
 def _draw_resource_panel(
     image: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -2225,15 +2225,16 @@ def _resize_to_window(frame: np.ndarray, window_name: str) -> np.ndarray:
 
 
 def _should_render_camera_only(window_name: str, preferred_size: tuple[int, int]) -> bool:
+    if _is_window_maximized(window_name):
+        return False
     client_size = _get_window_client_size(window_name)
     if not client_size:
         return False
     width, height = client_size
     preferred_width, preferred_height = preferred_size
-    return (
-        width < (preferred_width - CAMERA_ONLY_MIN_MARGIN)
-        or height < (preferred_height - CAMERA_ONLY_MIN_MARGIN)
-    )
+    if width >= preferred_width and height >= preferred_height:
+        return False
+    return True
 
 
 def _panel_lines_for_live_view(detector: CameraDetector, hardware: Any) -> list[str]:
@@ -2280,6 +2281,10 @@ def _fps_panel_line(fps: float) -> str:
     if fps <= 0:
         return f"FPS   {_tr('unknown')}"
     return f"FPS   {fps:.1f}"
+
+
+def _target_fps_for_profile(profile_name: str) -> int:
+    return {"high": 10, "medium": 15, "low": 30}.get(profile_name, 15)
 
 
 def _is_window_maximized(window_name: str) -> bool:
@@ -2339,13 +2344,15 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
     resource_lines: list[str] = []
     fps_text = _fps_panel_line(0.0)
     refresh_profile = _runtime_refresh_profile(runtime.profile_name)
-    performance_mode = runtime.profile_name == "low"
+    target_fps = _target_fps_for_profile(runtime.profile_name)
+    target_frame_interval = 1.0 / max(1, target_fps)
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.setMouseCallback(WINDOW_NAME, _sidebar_mouse_callback)
         _set_window_arrow_cursor(WINDOW_NAME)
 
         while True:
+            loop_started_at = time.perf_counter()
             ok, frame, _detections, _fps = detector.read_and_detect()
             if not ok:
                 continue
@@ -2391,26 +2398,26 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
                 prompt_lines = _assistant_lines_for_name_prompt(typed_name, len(frozen_detections))
                 chat_lines = ["Đặt tên", *prompt_lines]
             else:
-                chat_lines = [_tr("analysis"), _tr("press_t_hint"), _tr("toggle_performance_hint")]
+                chat_lines = [_tr("analysis"), _tr("press_t_hint"), _tr("keep_camera_stable")]
             status_lines = (
                 chat_lines
                 if capture_prep is not None or naming_mode
                 else [_tr("waiting_analysis"), _tr("analysis_placeholder")]
             )
 
-            preferred_layout_size = _preferred_desktop_layout_size(display_frame)
-            if performance_mode or _should_render_camera_only(WINDOW_NAME, preferred_layout_size):
+            desktop_layout = _compose_desktop_layout(
+                frame=display_frame,
+                resource_lines=resource_lines,
+                fps_text=fps_text,
+                status_lines=status_lines,
+                chat_title=chat_title,
+                chat_lines=chat_lines,
+                refresh_profile=refresh_profile,
+            )
+            if _should_render_camera_only(WINDOW_NAME, (desktop_layout.shape[1], desktop_layout.shape[0])):
                 composed = _compose_camera_only_layout(display_frame)
             else:
-                composed = _compose_desktop_layout(
-                    frame=display_frame,
-                    resource_lines=resource_lines,
-                    fps_text=fps_text,
-                    status_lines=status_lines,
-                    chat_title=chat_title,
-                    chat_lines=chat_lines,
-                    refresh_profile=refresh_profile,
-                )
+                composed = desktop_layout
 
             composed = _resize_to_window(composed, WINDOW_NAME)
             CURRENT_DISPLAY_SIZE = (composed.shape[1], composed.shape[0])
@@ -2420,7 +2427,9 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
                 _maximize_window(WINDOW_NAME)
                 _set_window_arrow_cursor(WINDOW_NAME)
                 window_positioned = True
-            key = cv2.waitKey(1) & 0xFF
+            elapsed = time.perf_counter() - loop_started_at
+            wait_ms = max(1, int(round(max(0.0, target_frame_interval - elapsed) * 1000.0)))
+            key = cv2.waitKey(wait_ms) & 0xFF
 
             if naming_mode:
                 if key == ord(" "):
@@ -2455,10 +2464,6 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
             if key in (ord("t"), ord("T")):
                 capture_prep = CapturePreparationState(stable_since=time.perf_counter())
                 detector.last_status_message = "Bat dau dem nguoc 5 giay de chup mau train."
-                continue
-            if key in (ord("p"), ord("P")):
-                performance_mode = not performance_mode
-                detector.last_status_message = _tr("performance_mode_on") if performance_mode else _tr("performance_mode_off")
                 continue
             if key == 27:
                 break

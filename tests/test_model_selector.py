@@ -21,8 +21,8 @@ class ModelSelectorTests(unittest.TestCase):
         )
         runtime = select_runtime_config("auto", hardware)
         self.assertEqual(runtime.profile_name, "high")
-        self.assertEqual(runtime.primary_model_name, "yolo11x.pt")
-        self.assertEqual(runtime.imgsz, 960)
+        self.assertEqual(runtime.primary_model_name, "yolo11s.pt")
+        self.assertEqual(runtime.imgsz, 640)
         self.assertEqual(runtime.resolved_device, "cuda:0")
         self.assertTrue(runtime.use_half)
 
@@ -38,8 +38,8 @@ class ModelSelectorTests(unittest.TestCase):
         )
         runtime = select_runtime_config("auto", hardware)
         self.assertEqual(runtime.profile_name, "medium")
-        self.assertEqual(runtime.primary_model_name, "yolo11s.pt")
-        self.assertEqual(runtime.imgsz, 640)
+        self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
+        self.assertEqual(runtime.imgsz, 512)
         self.assertEqual(runtime.resolved_device, "cuda:0")
         self.assertTrue(runtime.use_half)
 
@@ -107,7 +107,7 @@ class ModelSelectorTests(unittest.TestCase):
         runtime = select_runtime_config("high", hardware)
         self.assertEqual(runtime.profile_name, "fallback_cpu")
         self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
-        self.assertEqual(runtime.imgsz, 416)
+        self.assertEqual(runtime.imgsz, 320)
         self.assertEqual(runtime.resolved_device, "cpu")
         self.assertFalse(runtime.use_half)
 
@@ -124,7 +124,7 @@ class ModelSelectorTests(unittest.TestCase):
         runtime = select_runtime_config("high", hardware)
         self.assertEqual(runtime.profile_name, "low")
         self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
-        self.assertEqual(runtime.imgsz, 416)
+        self.assertEqual(runtime.imgsz, 320)
         self.assertEqual(runtime.resolved_device, "cuda:0")
         self.assertTrue(runtime.use_half)
 
@@ -141,7 +141,7 @@ class ModelSelectorTests(unittest.TestCase):
         runtime = select_runtime_config("low", hardware)
         self.assertEqual(runtime.profile_name, "low")
         self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
-        self.assertEqual(runtime.imgsz, 416)
+        self.assertEqual(runtime.imgsz, 320)
         self.assertEqual(runtime.resolved_device, "cuda:0")
 
     def test_high_mode_uses_large_camera_preset(self) -> None:
@@ -157,7 +157,7 @@ class ModelSelectorTests(unittest.TestCase):
         runtime = select_runtime_config("high", hardware)
         self.assertEqual(runtime.camera_width, 800)
         self.assertEqual(runtime.camera_height, 600)
-        self.assertEqual(runtime.imgsz, 768)
+        self.assertEqual(runtime.imgsz, 640)
         self.assertEqual(runtime.max_det, 100)
 
     def test_all_modes_keep_same_display_camera_preset(self) -> None:
