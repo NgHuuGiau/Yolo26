@@ -114,7 +114,7 @@ class RunEntrypointsTests(unittest.TestCase):
             {
                 "mode": "high",
                 "profile_name": "high",
-                "primary_model_name": "yolo26s.pt",
+                "primary_model_name": "yolo11s.pt",
                 "resolved_device": "cuda:0",
                 "imgsz": 640,
                 "camera_width": 1000,

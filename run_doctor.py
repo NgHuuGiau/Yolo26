@@ -10,7 +10,7 @@ from training.terminal_ui import CYAN, GREEN, RED, YELLOW, command_row, header, 
 from utils.file_utils import ensure_project_directories
 
 
-YOLO26_MODELS = ("yolo26n.pt", "yolo26s.pt", "yolo26m.pt", "yolo26l.pt", "yolo26x.pt")
+YOLO11_MODELS = ("yolo11n.pt", "yolo11s.pt", "yolo11m.pt", "yolo11l.pt", "yolo11x.pt")
 PRETRAINED_DIR = Path("models/pretrained")
 RAW_IMAGES_DIR = Path("dataset/raw/images")
 RAW_LABELS_DIR = Path("dataset/raw/labels")
@@ -36,8 +36,8 @@ def _count_files(path: Path) -> int:
 
 
 def _present_and_missing_models(model_dir: Path = PRETRAINED_DIR) -> tuple[list[str], list[str]]:
-    present = [name for name in YOLO26_MODELS if (model_dir / name).exists()]
-    missing = [name for name in YOLO26_MODELS if name not in present]
+    present = [name for name in YOLO11_MODELS if (model_dir / name).exists()]
+    missing = [name for name in YOLO11_MODELS if name not in present]
     return present, missing
 
 
@@ -139,18 +139,18 @@ def main() -> None:
         print(row("Chi tiết", camera_probe.detail.replace("Chi tiết          ", "").replace("Lý do không chạy   ", ""), camera_probe.color, bounded=False))
 
     print(line(rule("-"), CYAN))
-    print(section("MODEL YOLO26", GREEN if not missing_models else YELLOW))
+    print(section("MODEL YOLO11", GREEN if not missing_models else YELLOW))
     print(row("Đã có", ", ".join(present_models) if present_models else "Chưa có model nào", GREEN if present_models else RED, bounded=False))
     if missing_models:
         print(row("Thiếu", ", ".join(missing_models), RED, bounded=False))
     else:
-        print(row("Trạng thái", "Đã có đủ 5 model YOLO26.", GREEN, bounded=False))
+        print(row("Trạng thái", "Đã có đủ 5 model YOLO11.", GREEN, bounded=False))
 
     print(line(rule("-"), CYAN))
     print(section("GỢI Ý CHẠY THEO MÁY", GREEN))
     for label, runtime in recommendations.items():
         value = f"{runtime.primary_model_name} / {runtime.resolved_device} / imgsz {runtime.imgsz}"
-        color = GREEN if runtime.primary_model_name not in {"yolo26n.pt"} else YELLOW
+        color = GREEN if runtime.primary_model_name not in {"yolo11n.pt"} else YELLOW
         print(row(label, value, color, bounded=False))
 
     print(line(rule("-"), CYAN))
@@ -170,7 +170,7 @@ def main() -> None:
     elif missing_models:
         print(row("Lý do", "Máy vẫn chạy được, nhưng chưa có đủ 5 model để chọn hết mọi mức.", YELLOW, bounded=False))
     else:
-        print(row("Model", "Đã sẵn sàng để chạy đủ các mức YOLO26.", GREEN, bounded=False))
+        print(row("Model", "Đã sẵn sàng để chạy đủ các mức YOLO11.", GREEN, bounded=False))
 
     if camera_probe is not None and camera_probe.level != "PASS":
         print(row("Camera", camera_probe.detail.replace("Lý do không chạy   ", ""), YELLOW, bounded=False))

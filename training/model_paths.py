@@ -25,7 +25,7 @@ def resolve_trained_model_path(*, required: bool, fallback: str | None = None) -
     if TRAINED_BEST_MODEL_PATH.exists():
         return TRAINED_BEST_MODEL_PATH
     if fallback is not None:
-        return resolve_model_source(fallback)
+        return PRETRAINED_MODELS_DIR / Path(fallback).name
     if required:
         raise FileNotFoundError(f"Không tìm thấy {TRAINED_BEST_MODEL_PATH}")
     return TRAINED_BEST_MODEL_PATH

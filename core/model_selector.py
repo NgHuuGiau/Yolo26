@@ -8,12 +8,14 @@ from utils.file_utils import load_yaml_cached
 
 
 SETTINGS_PATH = Path("config/settings.yaml")
+VRAM_EPSILON_GB = 0.05
+LOW_PROFILE_MIN_GPU_VRAM_GB = 3.0
 MODEL_BACKUPS = {
-    "yolo26x.pt": (None, "yolo26l.pt", "yolo26m.pt", "yolo26s.pt", "yolo26n.pt"),
-    "yolo26l.pt": (None, "yolo26m.pt", "yolo26s.pt", "yolo26n.pt"),
-    "yolo26m.pt": (None, "yolo26s.pt", "yolo26n.pt"),
-    "yolo26s.pt": (None, "yolo26n.pt"),
-    "yolo26n.pt": (None,),
+    "yolo11x.pt": (None, "yolo11l.pt", "yolo11m.pt", "yolo11s.pt", "yolo11n.pt"),
+    "yolo11l.pt": (None, "yolo11m.pt", "yolo11s.pt", "yolo11n.pt"),
+    "yolo11m.pt": (None, "yolo11s.pt", "yolo11n.pt"),
+    "yolo11s.pt": (None, "yolo11n.pt"),
+    "yolo11n.pt": (None,),
 }
 MODE_DEVICE_HINTS = {"high": "gpu", "medium": "gpu"}
 FALLBACK_CHAINS = {
@@ -80,12 +82,12 @@ class RuntimeConfig:
         )
 
 
-def _camera_preset(settings: dict) -> dict:
+def _camera_preset(profile_name: str, settings: dict) -> dict:
     return settings.get("display_camera", settings["camera_large"])
 
 
 def build_candidates(model_name: str, settings: dict) -> list[str]:
-    backup_key, *fallbacks = MODEL_BACKUPS.get(model_name, (None, "yolo26n.pt"))
+    backup_key, *fallbacks = MODEL_BACKUPS.get(model_name, (None, "yolo11n.pt"))
     backup_model = settings.get("stable_backup", {}).get(backup_key) if backup_key else None
     return list(dict.fromkeys([model_name, *(item for item in [backup_model, *fallbacks] if item)]))
 
@@ -96,37 +98,40 @@ def _profile_tuple(profile_name: str, settings: dict) -> tuple[str, str, int]:
 
 
 def _gpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int]:
-    vram = float(hardware.vram_gb)
+    vram = float(hardware.vram_gb) + VRAM_EPSILON_GB
     if profile_name == "high":
         if vram >= 12:
-            return "yolo26x.pt", 960
+            return "yolo11x.pt", 960
         if vram >= 8:
-            return "yolo26l.pt", 896
+            return "yolo11l.pt", 896
         if vram >= 4:
-            return "yolo26m.pt", 768
+            return "yolo11m.pt", 768
         if vram >= 3:
-            return "yolo26s.pt", 640
-        return "yolo26n.pt", 512
+            return "yolo11s.pt", 640
+        return "yolo11n.pt", 512
     if profile_name == "medium":
         if vram >= 8:
-            return "yolo26m.pt", 768
+            return "yolo11m.pt", 768
         if vram >= 3.5:
-            return "yolo26s.pt", 640
-        return "yolo26n.pt", 512
-    return ("yolo26s.pt", 640) if vram >= 3 else ("yolo26n.pt", 512)
+            return "yolo11s.pt", 640
+        return "yolo11n.pt", 512
+    return "yolo11n.pt", 416
 
 
 def _cpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int]:
     ram = float(hardware.ram_gb)
     if profile_name == "high":
-        return ("yolo26s.pt", 416) if ram >= 16 else ("yolo26n.pt", 416)
+        return ("yolo11s.pt", 416) if ram >= 16 else ("yolo11n.pt", 416)
     if profile_name in {"medium", "fallback_cpu"}:
-        return "yolo26n.pt", 416
-    return "yolo26n.pt", 320
+        return "yolo11n.pt", 416
+    return "yolo11n.pt", 320
 
 
 def _resolved_profile_tuple(profile_name: str, hardware: HardwareInfo, settings: dict) -> tuple[str, str, int]:
-    if hardware.cuda_available:
+    vram = float(hardware.vram_gb) + VRAM_EPSILON_GB
+    if hardware.cuda_available and not (
+        profile_name == "low" and vram < LOW_PROFILE_MIN_GPU_VRAM_GB
+    ):
         device = "gpu"
         model_name, imgsz = _gpu_profile_tuple(profile_name, hardware)
         return device, model_name, imgsz
@@ -168,6 +173,7 @@ def _default_profile_for_auto(hardware: HardwareInfo, settings: dict) -> str:
 
 
 def _coerce_profile_name(mode: str, hardware: HardwareInfo, settings: dict) -> str:
+    vram = float(hardware.vram_gb) + VRAM_EPSILON_GB
     if mode == "auto":
         return _default_profile_for_auto(hardware, settings)
     if mode == "low":
@@ -175,9 +181,9 @@ def _coerce_profile_name(mode: str, hardware: HardwareInfo, settings: dict) -> s
     if not hardware.cuda_available:
         return _default_cpu_profile_name(hardware, settings)
     if mode == "high":
-        return "low" if hardware.vram_gb < 3.5 else "medium" if hardware.vram_gb < 4 else "high"
+        return "low" if vram < 3.5 else "medium" if vram < 4 else "high"
     if mode == "medium":
-        return "low" if hardware.vram_gb < 3 else "medium"
+        return "low" if vram < 3 else "medium"
     return mode
 
 
@@ -210,7 +216,7 @@ def select_runtime_config(mode: str, hardware: HardwareInfo) -> RuntimeConfig:
     requested_profile_name = _requested_profile_name(mode)
     requested_device, model_name, imgsz, profile_name = _mode_profile(mode, hardware, settings)
     requested_profile = settings["models"].get(requested_profile_name, settings["models"]["low"]) if requested_profile_name != "auto" else None
-    camera = _camera_preset(settings)
+    camera = _camera_preset(profile_name, settings)
     resolved_device = _resolved_device(requested_device, hardware)
     return RuntimeConfig(
         mode=mode,

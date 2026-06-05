@@ -17,31 +17,31 @@ hardware_profile:
 
 models:
   high:
-    model: yolo26x.pt
+    model: yolo11x.pt
     device: gpu
     imgsz: 960
   medium:
-    model: yolo26s.pt
+    model: yolo11s.pt
     device: gpu
     imgsz: 640
   low:
-    model: yolo26n.pt
+    model: yolo11n.pt
     device: auto
     imgsz: 512
   fallback_gpu_1:
-    model: yolo26m.pt
+    model: yolo11m.pt
     device: gpu
     imgsz: 768
   fallback_gpu_2:
-    model: yolo26s.pt
+    model: yolo11s.pt
     device: gpu
     imgsz: 512
   fallback_cpu:
-    model: yolo26s.pt
+    model: yolo11s.pt
     device: cpu
     imgsz: 416
   fallback_cpu_weak:
-    model: yolo26n.pt
+    model: yolo11n.pt
     device: cpu
     imgsz: 320
 
@@ -68,12 +68,12 @@ auto_profiles:
 experimental:
   try_higher_model:
     enabled: false
-    model: yolo26m.pt
+    model: yolo11m.pt
     imgsz: 416
 
 stable_backup:
-  gpu_model: yolo26m.pt
-  cpu_model: yolo26n.pt
+  gpu_model: yolo11m.pt
+  cpu_model: yolo11n.pt
 
 camera:
   width: 800

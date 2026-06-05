@@ -29,7 +29,7 @@ class _FakeBox:
 
 
 class AutoLabelRawTests(unittest.TestCase):
-    @patch("training.auto_label_raw._resolve_auto_label_model_path", return_value=Path("models/pretrained/yolo26s.pt"))
+    @patch("training.auto_label_raw._resolve_auto_label_model_path", return_value=Path("models/pretrained/yolo11s.pt"))
     @patch("training.auto_label_raw._require_yolo")
     def test_auto_label_raw_images_generates_txt_files(self, require_yolo_mock, _model_path_mock) -> None:
         with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:
@@ -61,7 +61,7 @@ class AutoLabelRawTests(unittest.TestCase):
             self.assertEqual(report["generated"], 1)
             self.assertEqual(report["no_detection"], [])
 
-    @patch("training.auto_label_raw._resolve_auto_label_model_path", return_value=Path("models/pretrained/yolo26s.pt"))
+    @patch("training.auto_label_raw._resolve_auto_label_model_path", return_value=Path("models/pretrained/yolo11s.pt"))
     @patch("training.auto_label_raw._require_yolo")
     def test_auto_label_raw_images_reports_images_with_no_detection(self, require_yolo_mock, _model_path_mock) -> None:
         with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:

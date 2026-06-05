@@ -70,11 +70,11 @@ class CameraDetectorTests(unittest.TestCase):
     ) -> None:
         primary_runtime = self._runtime()
         fallback_runtime = self._runtime()
-        fallback_runtime.primary_model_name = "yolo26n.pt"
+        fallback_runtime.primary_model_name = "yolo11n.pt"
         fallback_runtime.imgsz = 416
 
         model = MagicMock()
-        loaded = LoadedModel(model=model, model_name="yolo26n.pt", source_path="working.pt")
+        loaded = LoadedModel(model=model, model_name="yolo11n.pt", source_path="working.pt")
         load_model_mock.side_effect = [RuntimeError("cuda oom"), (loaded, "cuda:0")]
         fallback_mock.return_value = [fallback_runtime]
 
@@ -85,7 +85,7 @@ class CameraDetectorTests(unittest.TestCase):
         detector = CameraDetector(runtime=primary_runtime)
         detector.initialize()
 
-        self.assertEqual(detector.runtime.primary_model_name, "yolo26n.pt")
+        self.assertEqual(detector.runtime.primary_model_name, "yolo11n.pt")
         self.assertIs(detector.capture, capture)
 
     @patch("core.camera_runner.draw_detection_results", side_effect=lambda image, detections, box_thickness, label_font_scale: image)
@@ -106,7 +106,7 @@ class CameraDetectorTests(unittest.TestCase):
         fake_model = MagicMock()
         fake_model.predict.return_value = [result]
         load_model_mock.return_value = (
-            LoadedModel(model=fake_model, model_name="yolo26s.pt", source_path="yolo26s.pt"),
+            LoadedModel(model=fake_model, model_name="yolo11s.pt", source_path="yolo11s.pt"),
             "cuda:0",
         )
 
@@ -210,7 +210,7 @@ class CameraDetectorTests(unittest.TestCase):
         fake_model = MagicMock()
         fake_model.predict.side_effect = RuntimeError("cuda error")
         load_model_mock.return_value = (
-            LoadedModel(model=fake_model, model_name="yolo26s.pt", source_path="yolo26s.pt"),
+            LoadedModel(model=fake_model, model_name="yolo11s.pt", source_path="yolo11s.pt"),
             "cuda:0",
         )
 
@@ -242,7 +242,7 @@ class CameraDetectorTests(unittest.TestCase):
         runtime = self._runtime()
         fake_model = MagicMock()
         load_model_mock.return_value = (
-            LoadedModel(model=fake_model, model_name="yolo26s.pt", source_path="yolo26s.pt"),
+            LoadedModel(model=fake_model, model_name="yolo11s.pt", source_path="yolo11s.pt"),
             "cuda:0",
         )
         capture = MagicMock()

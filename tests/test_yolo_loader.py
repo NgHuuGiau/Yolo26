@@ -25,22 +25,22 @@ class YoloLoaderTests(unittest.TestCase):
     @patch("core.model_loader.YOLO")
     def test_load_yolo_model_tries_candidates_until_success(self, yolo_mock, candidate_paths_mock) -> None:
         runtime = self._runtime()
-        runtime.candidate_models = ["yolo26s.pt", "yolo26n.pt"]
+        runtime.candidate_models = ["yolo11s.pt", "yolo11n.pt"]
         candidate_paths_mock.side_effect = [["missing-a.pt", "missing-b.pt"], ["working.pt"]]
         yolo_mock.side_effect = [RuntimeError("missing-a"), RuntimeError("missing-b"), object()]
 
         loaded_model, resolved_device = load_yolo_model(runtime)
 
-        self.assertEqual(loaded_model.model_name, "yolo26n.pt")
+        self.assertEqual(loaded_model.model_name, "yolo11n.pt")
         self.assertEqual(loaded_model.source_path, "working.pt")
-        self.assertEqual(runtime.active_model_name, "yolo26n.pt")
+        self.assertEqual(runtime.active_model_name, "yolo11n.pt")
         self.assertEqual(resolved_device, "cuda:0")
 
     @patch("core.model_loader._candidate_paths", return_value=["missing.pt"])
     @patch("core.model_loader.YOLO", side_effect=RuntimeError("boom"))
     def test_load_yolo_model_raises_aggregated_error(self, _yolo_mock, _candidate_paths_mock) -> None:
         runtime = self._runtime()
-        runtime.candidate_models = ["yolo26s.pt"]
+        runtime.candidate_models = ["yolo11s.pt"]
 
         with self.assertRaises(RuntimeError) as context:
             load_yolo_model(runtime)
@@ -58,30 +58,30 @@ class YoloLoaderTests(unittest.TestCase):
         load_yaml_mock.return_value = {
             "priority_order": [
                 "models/trained/best.pt",
-                "models/pretrained/yolo26s.pt",
-                "yolo26s.pt",
+                "models/pretrained/yolo11s.pt",
+                "yolo11s.pt",
             ]
         }
 
         def fake_exists(path_obj):
             return str(path_obj).replace("\\", "/") in {
                 "models/trained/best.pt",
-                "models/pretrained/yolo26s.pt",
+                "models/pretrained/yolo11s.pt",
             }
 
         exists_mock.side_effect = fake_exists
 
-        candidates = _candidate_paths("yolo26s.pt")
+        candidates = _candidate_paths("yolo11s.pt")
 
         self.assertEqual(
             [candidate.replace("\\", "/") for candidate in candidates],
-            ["models/trained/best.pt", "models/pretrained/yolo26s.pt"],
+            ["models/trained/best.pt", "models/pretrained/yolo11s.pt"],
         )
 
     @patch("core.model_loader._candidate_paths", return_value=[])
     def test_load_yolo_model_reports_missing_local_model(self, _candidate_paths_mock) -> None:
         runtime = self._runtime()
-        runtime.candidate_models = ["yolo26s.pt"]
+        runtime.candidate_models = ["yolo11s.pt"]
 
         with self.assertRaises(RuntimeError) as context:
             load_yolo_model(runtime)

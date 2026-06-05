@@ -34,8 +34,8 @@ Thu muc `training/` chua toan bo pipeline train model YOLO rieng cho du an.
 
 ## Cau hinh khuyen nghi cho RTX 3050 Ti 4GB
 
-- Mac dinh: `yolo26s.pt`, `imgsz=512`, `batch=4`
-- Neu VRAM loi: ha xuong `yolo26n.pt`, `imgsz=416`
+- Mac dinh: `yolo11s.pt`, `imgsz=512`, `batch=4`
+- Neu VRAM loi: ha xuong `yolo11n.pt`, `imgsz=416`
 - Neu van loi: tiep tuc giam `imgsz=320`, `batch=2`
 
 ## Dau ra

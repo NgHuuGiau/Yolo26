@@ -13,8 +13,8 @@ class DownloadModelsTests(unittest.TestCase):
     def test_download_models_downloads_requested_files(self, urlretrieve_mock) -> None:
         with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:
             with patch.object(download_models, "PRETRAINED_DIR", Path(temp_dir)):
-                downloaded, skipped = download_models.download_models(["yolo26n.pt", "yolo26s.pt"])
-        self.assertEqual(downloaded, ["yolo26n.pt", "yolo26s.pt"])
+                downloaded, skipped = download_models.download_models(["yolo11n.pt", "yolo11s.pt"])
+        self.assertEqual(downloaded, ["yolo11n.pt", "yolo11s.pt"])
         self.assertEqual(skipped, [])
         self.assertEqual(urlretrieve_mock.call_count, 2)
 
@@ -22,11 +22,11 @@ class DownloadModelsTests(unittest.TestCase):
     def test_download_models_skips_existing_when_not_forced(self, urlretrieve_mock) -> None:
         with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:
             target_dir = Path(temp_dir)
-            (target_dir / "yolo26n.pt").write_text("existing", encoding="utf-8")
+            (target_dir / "yolo11n.pt").write_text("existing", encoding="utf-8")
             with patch.object(download_models, "PRETRAINED_DIR", target_dir):
-                downloaded, skipped = download_models.download_models(["yolo26n.pt"])
+                downloaded, skipped = download_models.download_models(["yolo11n.pt"])
         self.assertEqual(downloaded, [])
-        self.assertEqual(skipped, ["yolo26n.pt"])
+        self.assertEqual(skipped, ["yolo11n.pt"])
         urlretrieve_mock.assert_not_called()
 
 

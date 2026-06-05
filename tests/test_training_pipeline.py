@@ -19,8 +19,8 @@ class TrainingPipelineTests(unittest.TestCase):
         self, load_yaml_mock, yolo_mock, copy_best_mock, ensure_dataset_ready_mock, auto_prepare_mock
     ) -> None:
         load_yaml_mock.return_value = {
-            "model": "yolo26s.pt",
-            "fallback_model": "yolo26n.pt",
+            "model": "yolo11s.pt",
+            "fallback_model": "yolo11n.pt",
             "data": "training/data.yaml",
             "epochs": 2,
             "imgsz": 512,
@@ -46,7 +46,7 @@ class TrainingPipelineTests(unittest.TestCase):
 
         fallback_model.train.assert_called_once()
         kwargs = fallback_model.train.call_args.kwargs
-        self.assertEqual(kwargs["model"], "yolo26n.pt")
+        self.assertEqual(kwargs["model"], "yolo11n.pt")
         self.assertEqual(kwargs["imgsz"], 416)
         self.assertEqual(kwargs["batch"], 4)
         copy_best_mock.assert_called_once()
@@ -103,13 +103,13 @@ class TrainingPipelineTests(unittest.TestCase):
 
     @patch("training.validate_model._ensure_validation_dataset_ready")
     @patch("training.validate_model.YOLO")
-    def test_validate_model_falls_back_to_yolo26n_when_best_missing(self, yolo_mock, ensure_validation_ready_mock) -> None:
+    def test_validate_model_falls_back_to_yolo11n_when_best_missing(self, yolo_mock, ensure_validation_ready_mock) -> None:
         model = MagicMock()
         yolo_mock.return_value = model
         ensure_validation_ready_mock.return_value = None
-        with patch("training.validate_model.resolve_trained_model_path", return_value=Path("yolo26n.pt")):
+        with patch("training.validate_model.resolve_trained_model_path", return_value=Path("yolo11n.pt")):
             validate_model.main()
-        yolo_mock.assert_called_once_with(str(Path("models/pretrained/yolo26n.pt")))
+        yolo_mock.assert_called_once_with(str(Path("models/pretrained/yolo11n.pt")))
         model.val.assert_called_once()
 
     @patch("training.export_model.YOLO")

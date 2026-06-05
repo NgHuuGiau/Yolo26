@@ -1,5 +1,5 @@
-model: yolo26s.pt
-fallback_model: yolo26n.pt
+model: yolo11s.pt
+fallback_model: yolo11n.pt
 data: training/data.yaml
 epochs: 80
 imgsz: 512

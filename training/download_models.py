@@ -17,17 +17,17 @@ from utils.file_utils import ensure_project_directories
 
 BASE_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0"
 MODEL_URLS = {
-    "yolo26n.pt": f"{BASE_URL}/yolo26n.pt",
-    "yolo26s.pt": f"{BASE_URL}/yolo26s.pt",
-    "yolo26m.pt": f"{BASE_URL}/yolo26m.pt",
-    "yolo26l.pt": f"{BASE_URL}/yolo26l.pt",
-    "yolo26x.pt": f"{BASE_URL}/yolo26x.pt",
+    "yolo11n.pt": f"{BASE_URL}/yolo11n.pt",
+    "yolo11s.pt": f"{BASE_URL}/yolo11s.pt",
+    "yolo11m.pt": f"{BASE_URL}/yolo11m.pt",
+    "yolo11l.pt": f"{BASE_URL}/yolo11l.pt",
+    "yolo11x.pt": f"{BASE_URL}/yolo11x.pt",
 }
 PRETRAINED_DIR = Path("models/pretrained")
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tải model YOLO26 vào models/pretrained")
+    parser = argparse.ArgumentParser(description="Tải model YOLO11 vào models/pretrained")
     parser.add_argument("--models", nargs="*", choices=sorted(MODEL_URLS), help="Chỉ tải các model được chỉ định.")
     parser.add_argument("--force", action="store_true", help="Tải lại ngay cả khi file đã tồn tại.")
     return parser.parse_args()
@@ -52,7 +52,7 @@ def download_models(model_names: list[str] | None = None, *, force: bool = False
 def main() -> None:
     args = _parse_args()
     requested = args.models or list(MODEL_URLS)
-    for item in header("YOLO MODEL :: TẢI MODEL YOLO26"):
+    for item in header("YOLO MODEL :: TẢI MODEL YOLO11"):
         print(item)
     print(section("MỤC TIÊU", GREEN))
     print(row("Thư mục", str(PRETRAINED_DIR), GREEN))

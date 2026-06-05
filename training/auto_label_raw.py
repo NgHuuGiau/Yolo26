@@ -49,15 +49,15 @@ def _require_yolo():
 
 def _resolve_auto_label_model_path() -> Path:
     candidates = [
-        resolve_trained_model_path(required=False, fallback="yolo26s.pt"),
-        resolve_model_source("yolo26n.pt"),
+        resolve_trained_model_path(required=False, fallback="yolo11s.pt"),
+        resolve_model_source("yolo11n.pt"),
     ]
     for candidate in candidates:
         resolved = resolve_model_source(candidate)
         if resolved.exists():
             return resolved
     raise FileNotFoundError(
-        "Không tìm thấy model để auto label. Hãy kiểm tra models/trained/best.pt hoặc models/pretrained/yolo26s.pt."
+        "Không tìm thấy model để auto label. Hãy kiểm tra models/trained/best.pt hoặc models/pretrained/yolo11s.pt."
     )
 
 

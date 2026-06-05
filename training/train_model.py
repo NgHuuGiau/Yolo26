@@ -164,7 +164,7 @@ def main() -> None:
         results = model.train(**_training_kwargs(config))
     except Exception as exc:
         logger.warning("Primary training config failed: %s", exc)
-        fallback_model = config.get("fallback_model", "yolo26n.pt")
+        fallback_model = config.get("fallback_model", "yolo11n.pt")
         config["model"] = fallback_model
         config["imgsz"] = min(int(config["imgsz"]), 416)
         config["batch"] = min(int(config["batch"]), 4)

@@ -1,12 +1,12 @@
 preferred_models:
-  primary_gpu: yolo26s.pt
-  fallback_gpu: yolo26n.pt
-  stable_backup_gpu: yolo26m.pt
-  stable_backup_cpu: yolo26n.pt
+  primary_gpu: yolo11s.pt
+  fallback_gpu: yolo11n.pt
+  stable_backup_gpu: yolo11m.pt
+  stable_backup_cpu: yolo11n.pt
 
 priority_order:
   - models/trained/best.pt
-  - models/pretrained/yolo26s.pt
-  - yolo26s.pt
-  - models/pretrained/yolo26n.pt
-  - yolo26n.pt
+  - models/pretrained/yolo11s.pt
+  - yolo11s.pt
+  - models/pretrained/yolo11n.pt
+  - yolo11n.pt
