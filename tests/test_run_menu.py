@@ -19,7 +19,7 @@ class RunMenuTests(unittest.TestCase):
         outputs: list[str] = []
         run_script = MagicMock(return_value=0)
         clear_terminal = MagicMock()
-        answers = iter(["5", "0"])
+        answers = iter(["6", "0"])
         result = run_menu.main(input_fn=lambda _: next(answers), print_fn=outputs.append, run_script_fn=run_script, clear_terminal_fn=clear_terminal)
         self.assertEqual(result, 0)
         run_script.assert_called_once_with("run_doctor.py")
@@ -28,7 +28,7 @@ class RunMenuTests(unittest.TestCase):
 
     def test_main_retries_on_invalid_choice(self) -> None:
         outputs: list[str] = []
-        answers = iter(["9", "4", "0"])
+        answers = iter(["9", "5", "0"])
         run_script = MagicMock(return_value=0)
         clear_terminal = MagicMock()
         result = run_menu.main(input_fn=lambda _: next(answers), print_fn=outputs.append, run_script_fn=run_script, clear_terminal_fn=clear_terminal)
@@ -44,7 +44,7 @@ class RunMenuTests(unittest.TestCase):
         clear_terminal = MagicMock()
         result = run_menu.main(input_fn=lambda _: next(answers), print_fn=outputs.append, run_script_fn=run_script, clear_terminal_fn=clear_terminal)
         self.assertEqual(result, 0)
-        run_script.assert_called_once_with("run_train.py")
+        run_script.assert_called_once_with("run_tools.py")
         self.assertTrue(any("kết thúc với mã 1" in line for line in outputs))
         clear_terminal.assert_called_once()
 

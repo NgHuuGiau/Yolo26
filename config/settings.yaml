@@ -10,11 +10,6 @@ user_mode:
     - low
   default: auto
 
-hardware_profile:
-  cpu: Intel Core i7-11800H
-  gpu: NVIDIA GeForce RTX 3050 Ti Laptop GPU
-  vram_gb: 4
-
 models:
   high:
     model: yolo11x.pt

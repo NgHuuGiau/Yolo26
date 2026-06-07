@@ -21,12 +21,13 @@ class ModelSelectorTests(unittest.TestCase):
         )
         runtime = select_runtime_config("auto", hardware)
         self.assertEqual(runtime.profile_name, "high")
-        self.assertEqual(runtime.primary_model_name, "yolo11s.pt")
-        self.assertEqual(runtime.imgsz, 640)
+        self.assertEqual(runtime.primary_model_name, "yolo11x.pt")
+        self.assertEqual(runtime.imgsz, 960)
         self.assertEqual(runtime.resolved_device, "cuda:0")
+        self.assertEqual(runtime.hardware_tier, "strong GPU")
         self.assertTrue(runtime.use_half)
 
-    def test_auto_selects_medium_for_rtx_3050_ti_4gb(self) -> None:
+    def test_auto_selects_low_for_rtx_3050_ti_4gb(self) -> None:
         hardware = HardwareInfo(
             cpu_name="Intel Core i7-11800H",
             ram_gb=16.0,
@@ -37,11 +38,27 @@ class ModelSelectorTests(unittest.TestCase):
             gpu_count=1,
         )
         runtime = select_runtime_config("auto", hardware)
-        self.assertEqual(runtime.profile_name, "medium")
+        self.assertEqual(runtime.profile_name, "low")
         self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
-        self.assertEqual(runtime.imgsz, 512)
+        self.assertEqual(runtime.imgsz, 320)
         self.assertEqual(runtime.resolved_device, "cuda:0")
         self.assertTrue(runtime.use_half)
+
+    def test_runtime_config_includes_hardware_tier(self) -> None:
+        hardware = HardwareInfo(
+            cpu_name="Intel Core i5-9300H",
+            ram_gb=8.0,
+            gpu_name="NVIDIA GeForce MX450",
+            vram_gb=2.0,
+            cuda_available=True,
+            os_name="Windows 11",
+            gpu_count=1,
+        )
+        runtime = select_runtime_config("auto", hardware)
+        self.assertEqual(runtime.hardware_tier, "entry GPU")
+        self.assertEqual(runtime.profile_name, "low")
+        self.assertEqual(runtime.primary_model_name, "yolo11n.pt")
+        self.assertEqual(runtime.resolved_device, "cpu")
 
     def test_auto_selects_low_for_entry_gpu(self) -> None:
         hardware = HardwareInfo(
@@ -158,7 +175,7 @@ class ModelSelectorTests(unittest.TestCase):
         self.assertEqual(runtime.camera_width, 800)
         self.assertEqual(runtime.camera_height, 600)
         self.assertEqual(runtime.imgsz, 640)
-        self.assertEqual(runtime.max_det, 100)
+        self.assertEqual(runtime.max_det, 150)
 
     def test_all_modes_keep_same_display_camera_preset(self) -> None:
         hardware = HardwareInfo(

@@ -14,6 +14,9 @@ from core.camera_runner import (
     CapturePreparationState,
     DetectionRecord,
     STABLE_FRAMES_REQUIRED,
+    _fps_tolerance_for_profile,
+    _should_force_camera_only_preview,
+    _target_fps_for_profile,
     _next_sample_sequence_name,
     _sanitize_sample_name,
     _update_capture_preparation,
@@ -332,3 +335,74 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(remaining, CAPTURE_STABILITY_SECONDS)
         self.assertGreaterEqual(next_state.stable_frame_count, 1)
         self.assertLess(next_state.motion_score, 2.8)
+
+    def test_adjust_detect_interval_increases_when_fps_is_below_target(self) -> None:
+        hardware = HardwareInfo(
+            cpu_name="Intel Core i7-11800H",
+            ram_gb=16.0,
+            gpu_name="NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+            vram_gb=4.0,
+            cuda_available=True,
+            os_name="Windows 11",
+            gpu_count=1,
+        )
+        detector = CameraDetector(runtime=select_runtime_config("low", hardware))
+        detector.base_detect_interval = 5
+        detector.detect_interval = 5
+        detector.max_detect_interval = 8
+        detector.frame_index = 24
+        detector.last_detect_adjust_frame = 0
+
+        detector._adjust_detect_interval(26.0)
+
+        self.assertEqual(detector.detect_interval, 6)
+
+    def test_adjust_detect_interval_decreases_when_fps_is_above_target(self) -> None:
+        hardware = HardwareInfo(
+            cpu_name="Intel Core i7-11800H",
+            ram_gb=16.0,
+            gpu_name="NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+            vram_gb=4.0,
+            cuda_available=True,
+            os_name="Windows 11",
+            gpu_count=1,
+        )
+        detector = CameraDetector(runtime=select_runtime_config("low", hardware))
+        detector.base_detect_interval = 5
+        detector.detect_interval = 7
+        detector.max_detect_interval = 8
+        detector.frame_index = 24
+        detector.last_detect_adjust_frame = 0
+
+        detector._adjust_detect_interval(34.5)
+
+        self.assertEqual(detector.detect_interval, 6)
+
+    def test_low_profile_uses_more_aggressive_inference_limits(self) -> None:
+        hardware = HardwareInfo(
+            cpu_name="Intel Core i7-11800H",
+            ram_gb=16.0,
+            gpu_name="NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+            vram_gb=4.0,
+            cuda_available=True,
+            os_name="Windows 11",
+            gpu_count=1,
+        )
+        detector = CameraDetector(runtime=select_runtime_config("low", hardware))
+
+        self.assertEqual(detector._effective_inference_imgsz(), 320)
+        self.assertEqual(detector._effective_max_det(), 10)
+        self.assertEqual(detector._effective_confidence(), 0.35)
+        self.assertEqual(detector._effective_box_thickness(), 2)
+        self.assertGreaterEqual(detector._effective_label_font_scale(), 0.62)
+
+    def test_fps_policy_targets_match_requested_profiles(self) -> None:
+        self.assertEqual(_target_fps_for_profile("high"), 15)
+        self.assertEqual(_target_fps_for_profile("medium"), 18)
+        self.assertEqual(_target_fps_for_profile("low"), 30)
+        self.assertEqual(_fps_tolerance_for_profile("high"), 1.0)
+        self.assertEqual(_fps_tolerance_for_profile("medium"), 2.5)
+        self.assertEqual(_fps_tolerance_for_profile("low"), 1.5)
+        self.assertTrue(_should_force_camera_only_preview("high"))
+        self.assertTrue(_should_force_camera_only_preview("medium"))
+        self.assertTrue(_should_force_camera_only_preview("low"))

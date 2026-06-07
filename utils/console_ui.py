@@ -8,23 +8,28 @@ from typing import Any
 
 
 MODE_CHOICES = {"0": "exit", "1": "high", "2": "medium", "3": "low"}
-MODE_LABELS = {"auto": "Tự động theo máy", "high": "Cao nhất", "medium": "Trung bình", "low": "Yếu"}
+MODE_LABELS = {
+    "auto": "Tự động theo máy",
+    "high": "Mạnh nhất",
+    "medium": "Trung bình",
+    "low": "Yếu nhất",
+}
 PROFILE_LABELS = {
-    "high": "GPU cực mạnh",
-    "medium": "GPU cân bằng",
-    "low": "GPU/CPU ưu tiên mượt",
+    "high": "Mạnh nhất",
+    "medium": "Trung bình",
+    "low": "Yếu nhất",
     "fallback_cpu": "CPU an toàn",
     "fallback_cpu_weak": "CPU tối thiểu",
 }
 PROMPT_OPTIONS = (
-    ("1 | Cao nhất", "Ưu tiên chất lượng cao nhất máy còn gánh ổn.", "\033[92m"),
-    ("2 | Trung bình", "Ưu tiên cân bằng giữa mượt và chính xác.", "\033[93m"),
-    ("3 | Yếu", "Ưu tiên nhẹ nhất để máy chạy ổn định hơn.", "\033[93m"),
+    ("1 | MẠNH NHẤT", "Mức cao nhất máy còn gánh được.", "\033[92m"),
+    ("2 | TRUNG BÌNH", "Mức cân bằng để dùng thường xuyên.", "\033[93m"),
+    ("3 | YẾU NHẤT", "Mức nhẹ nhất để ưu tiên độ mượt.", "\033[93m"),
 )
 PERFORMANCE_HINTS = (
-    (85, "Chế độ rất mạnh, hệ thống đang ưu tiên chất lượng và hiệu năng tối đa."),
-    (65, "Chế độ cân bằng mạnh, hợp cho đa số máy tầm trung và mạnh."),
-    (40, "Chế độ tạm ổn, đang chạy được nhưng ưu tiên độ an toàn hơn hiệu năng."),
+    (85, "Runtime rất khỏe, ưu tiên chất lượng và tốc độ tối đa."),
+    (65, "Runtime cân bằng tốt, hợp cho đa số tình huống sử dụng."),
+    (40, "Runtime tạm ổn, ưu tiên ổn định hơn hiệu năng."),
 )
 
 RESET = "\033[0m"
@@ -89,7 +94,35 @@ def _row(label: str, value: str = "", color: str = "", *, bounded: bool = True) 
 def _normalize_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
     without_marks = "".join(char for char in normalized if not unicodedata.combining(char))
-    return without_marks.replace("đ", "d").replace("Đ", "D").lower()
+    return without_marks.replace("đ", "d").replace("Đ", "D").replace("Ä‘", "d").replace("Ä", "D").lower()
+
+
+def line(text: str = "", color: str = "") -> str:
+    return _line(text, color)
+
+
+def pad(text: str, width: int = CARD_WIDTH) -> str:
+    return _pad(text, width)
+
+
+def rule(char: str = "=") -> str:
+    return _rule(char)
+
+
+def section(title: str, color: str = CYAN) -> str:
+    return _section(title, color)
+
+
+def row(label: str, value: str = "", color: str = "", *, bounded: bool = True) -> str:
+    return _row(label, value, color, bounded=bounded)
+
+
+def header(title: str, color: str = CYAN) -> list[str]:
+    return [
+        _line(_rule("="), color),
+        _line(_pad(title), BOLD + color),
+        _line(_rule("="), color),
+    ]
 
 
 def mode_label(mode: str) -> str:
@@ -104,7 +137,7 @@ def power_score(runtime: Any, hardware: Any) -> int:
     score = 20
     if str(getattr(runtime, "resolved_device", "")).startswith("cuda"):
         score += 35
-    score += min(20, int(float(getattr(hardware, "vram_gb", 0.0)) * 2))
+    score += min(20, int(float(getattr(hardware, "vram_gb", 0.0) or 0.0) * 2))
     score += min(10, max(0, (int(getattr(runtime, "imgsz", 0)) - 320) // 64))
     score += 5 if getattr(runtime, "use_half", False) else 0
     score += {"high": 10, "medium": 5}.get(getattr(runtime, "profile_name", ""), 0)
@@ -125,6 +158,21 @@ def _usage_color(percent: float | None) -> str:
     return RED
 
 
+def progress_bar_colored(score: int, width: int | None = None) -> str:
+    normalized = max(0, min(100, score))
+    if width is None:
+        width = min(BOOT_BAR_WIDTH, max(12, (_terminal_columns() - len("0[]100")) // 2))
+    filled = round((normalized / 100) * width)
+    parts: list[str] = []
+    for index in range(width):
+        if index >= filled:
+            parts.append(f"{DIM}\u00b7{RESET}")
+        else:
+            color = YELLOW if index < width // 3 else ORANGE if index < (width * 2) // 3 else RED
+            parts.append(f"{color}\u2588{RESET}")
+    return f"0[{' '.join(parts)}]100"
+
+
 def _usage_row(label: str, percent: float | None) -> str:
     if percent is None:
         return _row(label, "Không rõ", YELLOW, bounded=False)
@@ -136,26 +184,6 @@ def _usage_row(label: str, percent: float | None) -> str:
     )
 
 
-def progress_bar_colored(score: int, width: int | None = None) -> str:
-    normalized = max(0, min(100, score))
-    if width is None:
-        width = min(BOOT_BAR_WIDTH, max(12, (_terminal_columns() - len("0[]100")) // 2))
-    filled = round((normalized / 100) * width)
-    parts: list[str] = []
-    for index in range(width):
-        if index >= filled:
-            parts.append(f"{DIM}·{RESET}")
-        else:
-            if index < width // 3:
-                color = YELLOW
-            elif index < (width * 2) // 3:
-                color = ORANGE
-            else:
-                color = RED
-            parts.append(f"{color}█{RESET}")
-    return f"0[{' '.join(parts)}]100"
-
-
 def dashboard_boot_bar(width: int = BOOT_BAR_WIDTH) -> str:
     return progress_bar_colored(100, width)
 
@@ -164,23 +192,23 @@ def performance_hint(score: int) -> str:
     for minimum, message in PERFORMANCE_HINTS:
         if score >= minimum:
             return message
-    return "Chế độ yếu hoặc đang bị giới hạn. Nên kiểm tra lại CUDA, model hoặc cấu hình máy."
+    return "Runtime đang bị giới hạn. Nên kiểm tra CUDA, model hoặc giảm mức chạy."
 
 
 def _runtime_line(mode: str, runtime: Any) -> str:
     return (
-        f"{mode_label(mode)} -> thực tế: "
-        f"{profile_label(getattr(runtime, 'profile_name', mode))} | "
+        f"{mode_label(mode)} -> "
         f"{getattr(runtime, 'primary_model_name', '-')} | "
         f"{getattr(runtime, 'resolved_device', '-')} | "
-        f"imgsz {getattr(runtime, 'imgsz', '-')}"
+        f"imgsz {getattr(runtime, 'imgsz', '-')} | "
+        f"max_det {getattr(runtime, 'max_det', '-')}"
     )
 
 
 def _render_prompt(hardware: Any | None = None, recommendations: dict[str, Any] | None = None, print_fn=print) -> None:
     _clear_terminal()
     suggested_runtime = recommendations.get("auto") if recommendations else None
-    suggested_mode = getattr(suggested_runtime, "profile_name", "medium") if suggested_runtime else "medium"
+    suggested_mode = getattr(suggested_runtime, "mode", "medium") if suggested_runtime else "medium"
     hardware_summary = (
         f"CPU: {getattr(hardware, 'cpu_name', 'Không rõ CPU')} | "
         f"RAM: {float(getattr(hardware, 'ram_gb', 0.0) or 0.0):.1f} GB | "
@@ -194,10 +222,10 @@ def _render_prompt(hardware: Any | None = None, recommendations: dict[str, Any] 
         _line(_pad("YOLO REALTIME CAMERA :: CHỌN CẤU HÌNH CHẠY"), BOLD + CYAN),
         _line(_rule("="), CYAN),
         _row("Phần cứng", hardware_summary, GREEN, bounded=False),
-        _row("Khuyên dùng", f"{mode_label(suggested_mode)} | hệ thống đã dò cấu hình máy trước khi chạy.", YELLOW, bounded=False),
-        _row("Phong cách", "Chọn 1 trong 3 mức, hệ thống sẽ tự hạ về model/device phù hợp nếu máy không gánh nổi.", DIM, bounded=False),
+        _row("Đề xuất", f"{mode_label(suggested_mode)} | hệ thống đã thăm dò máy trước khi chạy.", YELLOW, bounded=False),
+        _row("Ý nghĩa", "Chọn 1 trong 3 mức mạnh nhất / trung bình / yếu nhất.", DIM, bounded=False),
         _line(_rule("-"), CYAN),
-        _section("CÁC LỰA CHỌN", MAGENTA),
+        _section("3 LỰA CHỌN", MAGENTA),
     ]
     for label, value, color in PROMPT_OPTIONS:
         lines.append(_row(label, value, color))
@@ -209,12 +237,12 @@ def _render_prompt(hardware: Any | None = None, recommendations: dict[str, Any] 
     lines.extend(
         [
             _line(_rule("."), DIM),
-            _row("0 | Thoát", "Thoát khỏi chương trình ngay tại đây.", RED),
+            _row("0 | THOÁT", "Đóng chương trình ngay tại đây.", RED),
             _line(_rule("-"), CYAN),
         ]
     )
-    for line in lines:
-        print_fn(line)
+    for item in lines:
+        print_fn(item)
 
 
 def prompt_runtime_mode(hardware: Any | None = None, recommendations: dict[str, Any] | None = None, input_fn=input, print_fn=print) -> str:
@@ -254,27 +282,13 @@ def _dashboard_values(runtime: Any, hardware: Any, camera_index: int) -> dict[st
     if runtime_on_gpu:
         cuda_model_status = primary_model_name
     elif gpu_hardware_available:
-        cuda_model_status = "GPU có sẵn nhưng môi trường PyTorch hiện tại chưa dùng được CUDA"
+        cuda_model_status = "GPU có sẵn nhưng PyTorch hiện tại chưa dùng được CUDA"
     else:
         cuda_model_status = "Không có GPU/CUDA để chạy model bằng CUDA"
 
-    if cuda_available:
-        cuda_color = GREEN
-        reason_color = GREEN
-    elif requested_gpu_mode or gpu_hardware_available:
-        cuda_color = RED
-        reason_color = RED
-    else:
-        cuda_color = YELLOW
-        reason_color = YELLOW
-
-    if runtime_on_gpu:
-        model_color = GREEN
-    elif requested_gpu_mode:
-        model_color = RED
-    else:
-        model_color = YELLOW
-
+    cuda_color = GREEN if cuda_available else RED if requested_gpu_mode or gpu_hardware_available else YELLOW
+    reason_color = cuda_color
+    model_color = GREEN if runtime_on_gpu else RED if requested_gpu_mode else YELLOW
     if requested_profile == "auto":
         profile_color = GREEN if runtime_on_gpu else YELLOW
     elif profile_match:
@@ -289,7 +303,7 @@ def _dashboard_values(runtime: Any, hardware: Any, camera_index: int) -> dict[st
         "runtime_profile": getattr(runtime, "profile_name", getattr(runtime, "mode", "auto")),
         "requested_profile": requested_profile,
         "score": score,
-        "actual_runtime": f"{primary_model_name} / {resolved_device} / imgsz {getattr(runtime, 'imgsz', '-')}",
+        "actual_runtime": f"{primary_model_name} / {resolved_device} / imgsz {getattr(runtime, 'imgsz', '-')} / max_det {getattr(runtime, 'max_det', '-')}",
         "cuda_target": cuda_target,
         "cuda_model_status": cuda_model_status,
         "torch_color": GREEN if getattr(hardware, "torch_cuda_version", "CPU-only") != "CPU-only" else YELLOW if gpu_hardware_available else RED,
@@ -297,7 +311,6 @@ def _dashboard_values(runtime: Any, hardware: Any, camera_index: int) -> dict[st
         "reason_color": reason_color,
         "model_color": model_color,
         "profile_color": profile_color,
-        "boot_color": _score_color(score),
         "hardware_section_color": GREEN if cuda_available else RED if gpu_hardware_available else YELLOW,
         "runtime_section_color": model_color,
         "ready_section_color": _score_color(score),
@@ -321,7 +334,7 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _row("CPU", getattr(hardware, "cpu_name", "Không rõ CPU"), GREEN),
         _row("RAM / OS", f"{float(getattr(hardware, 'ram_gb', 0.0) or 0.0):.1f} GB / {getattr(hardware, 'os_name', 'Không rõ OS')}", GREEN),
         _row("GPU", getattr(hardware, "gpu_name", "Không rõ"), values["hardware_section_color"]),
-        _row("VRAM / GPU count", f"{float(getattr(hardware, 'vram_gb', 0.0) or 0.0):.1f} GB / {int(getattr(hardware, 'gpu_count', 0) or 0)}", values["hardware_section_color"]),
+        _row("VRAM / GPU", f"{float(getattr(hardware, 'vram_gb', 0.0) or 0.0):.1f} GB / {int(getattr(hardware, 'gpu_count', 0) or 0)}", values["hardware_section_color"]),
         _row("Torch / build", f"{getattr(hardware, 'torch_version', 'Không có PyTorch')} / {getattr(hardware, 'torch_cuda_version', 'CPU-only')}", values["torch_color"]),
         _row("CUDA runtime", getattr(hardware, "cuda_runtime_status", "Không"), values["cuda_color"]),
         _row("Lý do CUDA", getattr(hardware, "cuda_runtime_reason", "Chưa kiểm tra"), values["reason_color"], bounded=False),
@@ -329,7 +342,6 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _section("RUNTIME", values["runtime_section_color"]),
         _row("Model đang chạy", values["actual_runtime"], values["model_color"]),
         _row("Model CUDA", values["cuda_model_status"], values["model_color"], bounded=False),
-        _row("imgsz / max_det", f"{getattr(runtime, 'imgsz', '-')} / {getattr(runtime, 'max_det', '-')}", CYAN),
         _row("Camera / Index", f"{getattr(runtime, 'camera_width', '-')}x{getattr(runtime, 'camera_height', '-')} / {camera_index}", CYAN),
         _row("Half precision", "Bật" if getattr(runtime, "use_half", False) else "Tắt", GREEN if getattr(runtime, "use_half", False) else YELLOW),
         _line(_rule("-"), CYAN),
@@ -337,14 +349,13 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _row("Trạng thái", performance_hint(values["score"]), values["ready_text_color"], bounded=False),
         _line(_rule("-"), CYAN),
     ]
-    for line in lines:
-        print_fn(line)
+    for item in lines:
+        print_fn(item)
 
 
 def explain_runtime_failure(error: Exception) -> tuple[str, list[str], list[str]]:
     message = str(error)
     lower_message = _normalize_text(message)
-
     if "khong mo duoc camera" in lower_message or "camera lien tuc khong tra ve frame" in lower_message:
         return (
             "Không mở được webcam hoặc webcam không trả về frame.",
@@ -358,12 +369,11 @@ def explain_runtime_failure(error: Exception) -> tuple[str, list[str], list[str]
                 r".\.venv\Scripts\python run_detect.py --camera-index 1",
             ],
         )
-
     if "khong khoi tao duoc ultralytics" in lower_message or "khong khoi tao duoc detector" in lower_message:
         return (
             "Không nạp được YOLO / ultralytics để bắt đầu nhận diện.",
             [
-                "Kiểm tra môi trường .venv và gói cài đặt ultralytics, torch, torchvision.",
+                "Kiểm tra môi trường .venv và gói ultralytics, torch, torchvision.",
                 "Kiểm tra model local trong models/pretrained hoặc models/trained.",
                 "Nếu máy yếu hoặc lỗi CUDA, thử mode low.",
             ],
@@ -372,10 +382,9 @@ def explain_runtime_failure(error: Exception) -> tuple[str, list[str], list[str]
                 r".\.venv\Scripts\python run_detect.py --mode low",
             ],
         )
-
     if "cuda" in lower_message or "pytorch" in lower_message or "torch" in lower_message:
         return (
-            "Môi trường PyTorch / CUDA đang có vấn đề hoặc không sẵn sàng.",
+            "Môi trường PyTorch / CUDA đang có vấn đề hoặc chưa sẵn sàng.",
             [
                 "Kiểm tra torch.cuda.is_available() trong .venv.",
                 "Nếu không cần GPU, thử mode low để chạy nhẹ hơn.",
@@ -386,7 +395,6 @@ def explain_runtime_failure(error: Exception) -> tuple[str, list[str], list[str]
                 r".\.venv\Scripts\python run_app.py --mode low",
             ],
         )
-
     return (
         message or "Không xác định được lỗi cụ thể.",
         [
@@ -407,7 +415,7 @@ def print_runtime_failure(title: str, error: Exception, *, print_fn=print) -> No
         _line(_pad(title), BOLD + RED),
         _line(_rule("="), CYAN),
         _section("LÝ DO", RED),
-        _row("Lý do không chạy", reason, RED, bounded=False),
+        _row("Lý do", reason, RED, bounded=False),
         _row("Chi tiết", str(error), YELLOW, bounded=False),
         _line(_rule("-"), CYAN),
         _section("GỢI Ý", GREEN),
@@ -418,8 +426,8 @@ def print_runtime_failure(title: str, error: Exception, *, print_fn=print) -> No
     for index, command in enumerate(commands, start=1):
         lines.append(_row(f"Lệnh {index}", command, CYAN, bounded=False))
     lines.append(_line(_rule("="), CYAN))
-    for line in lines:
-        print_fn(line)
+    for item in lines:
+        print_fn(item)
 
 
 class BootProgress:

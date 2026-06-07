@@ -3,16 +3,16 @@ import argparse
 from app.camera_app import build_runtime_arg_parser, run_camera_entrypoint
 from core.camera_runner import run_camera_session
 from core.hardware_info import detect_hardware
-from core.model_selector import select_runtime_config
+from core.runtime_advisor import select_runtime_config_optimized
+from tools.runtime_tool import prompt_runtime_mode
 from utils.logger import get_logger
-from utils.console_ui import prompt_runtime_mode
 
 
 logger = get_logger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    return build_runtime_arg_parser("Run YOLO realtime camera detection.").parse_args()
+    return build_runtime_arg_parser("Chạy YOLO realtime camera ở chế độ nhận diện CLI.").parse_args()
 
 
 def main() -> int:
@@ -24,7 +24,7 @@ def main() -> int:
         error_message="Camera session failed: %s. Gợi ý: kiểm tra webcam, CUDA, model và thử mode low.",
         logger=logger,
         detect_hardware_fn=detect_hardware,
-        select_runtime_config_fn=select_runtime_config,
+        select_runtime_config_fn=select_runtime_config_optimized,
         run_camera_session_fn=run_camera_session,
         prompt_runtime_mode_fn=prompt_runtime_mode,
     )

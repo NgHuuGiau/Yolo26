@@ -9,36 +9,21 @@ class RuntimePromptTests(unittest.TestCase):
     def test_prompt_runtime_mode_exits_on_zero(self) -> None:
         answers = iter(["0"])
         printed: list[str] = []
-
         with self.assertRaises(SystemExit) as ctx:
-            prompt_runtime_mode(
-                input_fn=lambda _: next(answers),
-                print_fn=printed.append,
-            )
-
+            prompt_runtime_mode(input_fn=lambda _: next(answers), print_fn=printed.append)
         self.assertEqual(ctx.exception.code, 0)
 
     def test_prompt_runtime_mode_accepts_valid_choice(self) -> None:
         answers = iter(["2"])
         printed: list[str] = []
-
-        mode = prompt_runtime_mode(
-            input_fn=lambda _: next(answers),
-            print_fn=printed.append,
-        )
-
+        mode = prompt_runtime_mode(input_fn=lambda _: next(answers), print_fn=printed.append)
         self.assertEqual(mode, "medium")
         self.assertTrue(any("CHỌN CẤU HÌNH CHẠY" in line for line in printed))
 
     def test_prompt_runtime_mode_retries_on_invalid_choice(self) -> None:
         answers = iter(["9", "", "3"])
         printed: list[str] = []
-
-        mode = prompt_runtime_mode(
-            input_fn=lambda _: next(answers),
-            print_fn=printed.append,
-        )
-
+        mode = prompt_runtime_mode(input_fn=lambda _: next(answers), print_fn=printed.append)
         self.assertEqual(mode, "low")
         self.assertTrue(any("Lựa chọn không hợp lệ" in line for line in printed))
 

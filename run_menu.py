@@ -10,20 +10,22 @@ from training.terminal_ui import CYAN, GREEN, RED, YELLOW, header, line, row, ru
 MENU_OPTIONS = {
     "1": ("run_app.py", "Mở camera app chính"),
     "2": ("run_detect.py", "Mở detect camera"),
-    "3": ("run_train.py", "Chạy huấn luyện"),
-    "4": ("run_tests.py", "Chạy toàn bộ test"),
-    "5": ("run_doctor.py", "Kiểm tra toàn hệ thống"),
+    "3": ("run_tools.py", "Xem cấu hình máy và 3 mức tối ưu"),
+    "4": ("run_train.py", "Chạy huấn luyện"),
+    "5": ("run_tests.py", "Chạy toàn bộ test"),
+    "6": ("run_doctor.py", "Kiểm tra toàn hệ thống"),
     "0": ("", "Thoát"),
 }
 
 
 def _render_menu(print_fn=print) -> None:
-    for item in header("YOLO MENU :: CHỌN LỆNH CẦN CHẠY"):
+    for item in header("YOLO HUB :: ĐIỀU HƯỚNG TOÀN BỘ DỰ ÁN"):
         print_fn(item)
-    print_fn(section("TÁC VỤ", GREEN))
-    for key in ("1", "2", "3", "4", "5"):
+    print_fn(section("LỐI VÀO CHÍNH", GREEN))
+    for key in ("1", "2", "3", "4", "5", "6"):
         script_name, description = MENU_OPTIONS[key]
-        print_fn(row(f"{key} | {script_name}", description, GREEN, bounded=False))
+        color = GREEN if key in {"1", "2", "3"} else YELLOW
+        print_fn(row(f"{key} | {script_name}", description, color, bounded=False))
     print_fn(line(rule("-"), CYAN))
     print_fn(section("THOÁT", YELLOW))
     print_fn(row("0 | Thoát", "Đóng menu ngay tại đây.", YELLOW, bounded=False))
@@ -41,7 +43,7 @@ def _run_script(script_name: str) -> int:
 def main(input_fn=input, print_fn=print, run_script_fn=_run_script, clear_terminal_fn=_clear_terminal) -> int:
     while True:
         _render_menu(print_fn=print_fn)
-        choice = input_fn("Nhập lựa chọn của bạn (0/1/2/3/4/5): ").strip()
+        choice = input_fn("Nhập lựa chọn của bạn (0/1/2/3/4/5/6): ").strip()
         if choice == "0":
             print_fn(line("Đã thoát menu.", YELLOW))
             return 0
