@@ -43,7 +43,7 @@ def _require_yolo():
         except Exception as exc:  # pragma: no cover
             ULTRALYTICS_IMPORT_ERROR = exc
     if YOLO is None:
-        raise RuntimeError(f"Không khởi tạo được ultralytics/YOLO: {ULTRALYTICS_IMPORT_ERROR}")
+        raise RuntimeError(f"Cannot initialize ultralytics/YOLO: {ULTRALYTICS_IMPORT_ERROR}")
     return YOLO
 
 
@@ -57,7 +57,7 @@ def _resolve_auto_label_model_path() -> Path:
         if resolved.exists():
             return resolved
     raise FileNotFoundError(
-        "Không tìm thấy model để auto label. Hãy kiểm tra models/trained/best.pt hoặc models/pretrained/yolo11s.pt."
+        "No model found for auto labeling. Check models/trained/best.pt or models/pretrained/yolo11s.pt."
     )
 
 
@@ -130,7 +130,7 @@ def auto_label_raw_images(*, overwrite: bool = False, conf: float = 0.25, device
 
         label_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         generated += 1
-        logger.info("Đã tạo label tự động cho %s", image_path.name)
+        logger.info("Auto label created for %s", image_path.name)
 
     return {
         "images": len(image_paths),
@@ -142,50 +142,50 @@ def auto_label_raw_images(*, overwrite: bool = False, conf: float = 0.25, device
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Tự sinh label YOLO cho dataset/raw/images bằng model hiện có")
-    parser.add_argument("--overwrite", action="store_true", help="Ghi đè label .txt đã tồn tại")
-    parser.add_argument("--conf", type=float, default=0.25, help="Ngưỡng confidence khi detect")
-    parser.add_argument("--device", default="cpu", help="Thiết bị suy luận, ví dụ cpu hoặc cuda:0")
+    parser = argparse.ArgumentParser(description="Auto generate YOLO labels for dataset/raw/images using existing model")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing label .txt files")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold for detection")
+    parser.add_argument("--device", default="cpu", help="Inference device, e.g. cpu or cuda:0")
     args = parser.parse_args()
 
-    for item in header("YOLO AUTO LABEL :: TẠO TỌA ĐỘ CHO RAW IMAGES"):
+    for item in header("YOLO AUTO LABEL :: GENERATE COORDINATES FOR RAW IMAGES"):
         print(item)
     try:
         report = auto_label_raw_images(overwrite=args.overwrite, conf=args.conf, device=args.device)
     except Exception as exc:
-        print(section("LỖI", RED))
-        print(row("Lý do không chạy", str(exc), RED, bounded=False))
+        print(section("ERROR", RED))
+        print(row("Reason cannot run", str(exc), RED, bounded=False))
         print(line(rule("-"), CYAN))
-        print(section("LỆNH THỬ", CYAN))
+        print(section("TRY COMMANDS", CYAN))
         print(command_row(1, r".\.venv\Scripts\python training\download_models.py"))
         print(command_row(2, r".\.venv\Scripts\python training\auto_label_raw.py"))
         print(line(rule("="), CYAN))
         raise SystemExit(1)
 
     if report["images"] == 0:
-        print(section("KẾT QUẢ", YELLOW))
-        print(row("Lý do không chạy", "Chưa có ảnh trong dataset/raw/images", YELLOW, bounded=False))
+        print(section("RESULT", YELLOW))
+        print(row("Reason cannot run", "No images in dataset/raw/images", YELLOW, bounded=False))
         print(line(rule("-"), CYAN))
-        print(section("LỆNH TIẾP", CYAN))
+        print(section("NEXT COMMANDS", CYAN))
         print(command_row(1, r".\.venv\Scripts\python training\prepare_dataset.py"))
         print(command_row(2, r".\.venv\Scripts\python training\auto_label_raw.py"))
         print(line(rule("="), CYAN))
         raise SystemExit(1)
 
     no_detection = report["no_detection"]
-    print(section("KẾT QUẢ", GREEN if report["generated"] else YELLOW))
-    print(row("Tổng ảnh raw", str(report["images"]), GREEN))
-    print(row("Đã tạo label", str(report["generated"]), GREEN if report["generated"] else YELLOW))
-    print(row("Bỏ qua label cũ", str(report["skipped_existing"]), YELLOW if report["skipped_existing"] else GREEN))
-    print(row("Không detect được", str(len(no_detection)), YELLOW if no_detection else GREEN))
-    print(row("Model dùng", str(report["model_path"]) if report["model_path"] else "Không rõ", CYAN, bounded=False))
+    print(section("RESULT", GREEN if report["generated"] else YELLOW))
+    print(row("Total raw images", str(report["images"]), GREEN))
+    print(row("Labels generated", str(report["generated"]), GREEN if report["generated"] else YELLOW))
+    print(row("Skipped existing", str(report["skipped_existing"]), YELLOW if report["skipped_existing"] else GREEN))
+    print(row("No detection", str(len(no_detection)), YELLOW if no_detection else GREEN))
+    print(row("Model used", str(report["model_path"]) if report["model_path"] else "Unknown", CYAN, bounded=False))
     if no_detection:
         print(line(rule("-"), CYAN))
-        print(section("CẦN KIỂM TRA", YELLOW))
+        print(section("NEEDS REVIEW", YELLOW))
         for name in no_detection[:8]:
-            print(row("Ảnh chưa có tọa độ", name, YELLOW, bounded=False))
+            print(row("Image without coordinates", name, YELLOW, bounded=False))
     print(line(rule("-"), CYAN))
-    print(section("LỆNH TIẾP", CYAN))
+    print(section("NEXT COMMANDS", CYAN))
     print(command_row(1, r".\.venv\Scripts\python training\validate_dataset.py"))
     print(command_row(2, r".\.venv\Scripts\python training\split_dataset.py"))
     print(command_row(3, r".\.venv\Scripts\python run_train.py"))

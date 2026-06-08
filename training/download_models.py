@@ -27,9 +27,9 @@ PRETRAINED_DIR = Path("models/pretrained")
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tải model YOLO11 vào models/pretrained")
-    parser.add_argument("--models", nargs="*", choices=sorted(MODEL_URLS), help="Chỉ tải các model được chỉ định.")
-    parser.add_argument("--force", action="store_true", help="Tải lại ngay cả khi file đã tồn tại.")
+    parser = argparse.ArgumentParser(description="Download YOLO11 models to models/pretrained")
+    parser.add_argument("--models", nargs="*", choices=sorted(MODEL_URLS), help="Download only specified models.")
+    parser.add_argument("--force", action="store_true", help="Redownload even if file exists.")
     return parser.parse_args()
 
 
@@ -52,28 +52,28 @@ def download_models(model_names: list[str] | None = None, *, force: bool = False
 def main() -> None:
     args = _parse_args()
     requested = args.models or list(MODEL_URLS)
-    for item in header("YOLO MODEL :: TẢI MODEL YOLO11"):
+    for item in header("YOLO MODEL :: DOWNLOAD YOLO11"):
         print(item)
-    print(section("MỤC TIÊU", GREEN))
-    print(row("Thư mục", str(PRETRAINED_DIR), GREEN))
-    print(row("Model yêu cầu", ", ".join(requested), YELLOW, bounded=False))
+    print(section("TARGET", GREEN))
+    print(row("Directory", str(PRETRAINED_DIR), GREEN))
+    print(row("Models requested", ", ".join(requested), YELLOW, bounded=False))
     print(line(rule("-"), CYAN))
     try:
         downloaded, skipped = download_models(requested, force=args.force)
     except Exception as exc:
-        print(section("LỖI", RED))
-        print(row("Lý do không chạy", str(exc), RED, bounded=False))
+        print(section("ERROR", RED))
+        print(row("Reason cannot run", str(exc), RED, bounded=False))
         print(line(rule("-"), CYAN))
-        print(section("LỆNH THỬ", CYAN))
+        print(section("TRY COMMANDS", CYAN))
         print(command_row(1, r".\.venv\Scripts\python training\download_models.py --force"))
         print(line(rule("="), CYAN))
         raise
 
-    print(section("KẾT QUẢ", GREEN if downloaded else YELLOW))
-    print(row("Đã tải", ", ".join(downloaded) if downloaded else "Không có model nào được tải mới", GREEN if downloaded else YELLOW, bounded=False))
-    print(row("Bỏ qua", ", ".join(skipped) if skipped else "Không có", YELLOW if skipped else GREEN, bounded=False))
+    print(section("RESULT", GREEN if downloaded else YELLOW))
+    print(row("Downloaded", ", ".join(downloaded) if downloaded else "No new models downloaded", GREEN if downloaded else YELLOW, bounded=False))
+    print(row("Skipped", ", ".join(skipped) if skipped else "None", YELLOW if skipped else GREEN, bounded=False))
     print(line(rule("-"), CYAN))
-    print(section("LỆNH TIẾP", CYAN))
+    print(section("NEXT COMMANDS", CYAN))
     print(command_row(1, r".\.venv\Scripts\python run_doctor.py"))
     print(command_row(2, r".\.venv\Scripts\python run_app.py"))
     print(line(rule("="), CYAN))
