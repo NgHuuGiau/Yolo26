@@ -8,11 +8,16 @@ from typing import Any
 
 
 MODE_CHOICES = {"0": "exit", "1": "high", "2": "medium", "3": "low"}
+START_TARGET_CHOICES = {"0": "exit", "1": "ui", "2": "camera"}
 MODE_LABELS = {
     "auto": "Tự động theo máy",
     "high": "Mạnh nhất",
     "medium": "Trung bình",
     "low": "Yếu nhất",
+}
+START_TARGET_LABELS = {
+    "ui": "UI desktop",
+    "camera": "Camera realtime",
 }
 PROFILE_LABELS = {
     "high": "Mạnh nhất",
@@ -263,7 +268,48 @@ def mode_to_ui_defaults(mode: str) -> tuple[str, str]:
     return ("auto", "medium") if mode == "auto" else ("manual", mode)
 
 
-def _dashboard_values(runtime: Any, hardware: Any, camera_index: int) -> dict[str, Any]:
+def launch_target_label(target: str) -> str:
+    return START_TARGET_LABELS.get(target, target)
+
+
+def prompt_launch_target(
+    *,
+    selected_mode: str,
+    selected_model: str,
+    preferred_target: str = "ui",
+    input_fn=input,
+    print_fn=print,
+) -> str:
+    while True:
+        _clear_terminal()
+        lines = [
+            _line(_rule("="), CYAN),
+            _line(_pad("YOLO REALTIME CAMERA :: CHON KIEU KHOI DONG"), BOLD + CYAN),
+            _line(_rule("="), CYAN),
+            _row("Cau hinh", f"{mode_label(selected_mode)} | {selected_model}", GREEN, bounded=False),
+            _row("De xuat", launch_target_label(preferred_target), YELLOW, bounded=False),
+            _line(_rule("-"), CYAN),
+            _section("2 LUA CHON", MAGENTA),
+            _row("1 | UI DESKTOP", "Mo giao dien desktop / chat.", GREEN),
+            _row("2 | CAMERA", "Chay detect realtime chi voi camera.", YELLOW),
+            _line(_rule("."), DIM),
+            _row("0 | THOAT", "Dong chuong trinh ngay tai day.", RED),
+            _line(_rule("-"), CYAN),
+        ]
+        for item in lines:
+            print_fn(item)
+        target = START_TARGET_CHOICES.get(input_fn(_line("Nhap lua chon cua ban (0/1/2): ", BOLD)).strip())
+        if target == "exit":
+            raise SystemExit(0)
+        if target:
+            print_fn("")
+            print_fn(_line(f"Da chon kieu chay: {launch_target_label(target)}", GREEN))
+            return target
+        print_fn(_line("Lua chon khong hop le. Vui long nhap 0, 1 hoac 2.", RED))
+        input_fn(_line("Nhan Enter de chon lai...", DIM))
+
+
+def _dashboard_values(runtime: Any, hardware: Any, camera_index: int, launch_target: str | None = None) -> dict[str, Any]:
     requested_profile = getattr(runtime, "requested_profile_name", getattr(runtime, "mode", "auto"))
     gpu_count = int(getattr(hardware, "gpu_count", 0) or 0)
     gpu_hardware_available = bool(getattr(hardware, "gpu_hardware_available", gpu_count > 0))
@@ -316,15 +362,17 @@ def _dashboard_values(runtime: Any, hardware: Any, camera_index: int) -> dict[st
         "ready_section_color": _score_color(score),
         "ready_text_color": _score_color(score),
         "camera_index": camera_index,
+        "launch_target": launch_target_label(launch_target) if launch_target else None,
     }
 
 
-def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_index: int, print_fn=print) -> None:
-    values = _dashboard_values(runtime, hardware, camera_index)
+def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_index: int, launch_target: str | None = None, print_fn=print) -> None:
+    values = _dashboard_values(runtime, hardware, camera_index, launch_target)
     lines = [
         _line(_rule("="), CYAN),
         _line(_pad(title), BOLD + CYAN),
         _line(_rule("="), CYAN),
+        _row("Kieu chay", values["launch_target"] or "-", CYAN),
         _row("Lựa chọn", values["chosen_label"], GREEN),
         _row("Mục tiêu", f"{values['requested_profile']} -> {values['cuda_target']}", MAGENTA),
         _row("Thực tế", f"{profile_label(values['runtime_profile'])} ({values['runtime_profile']})", values["profile_color"]),

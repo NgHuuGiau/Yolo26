@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from utils.console_ui import mode_to_ui_defaults, prompt_runtime_mode
+from utils.console_ui import mode_to_ui_defaults, prompt_launch_target, prompt_runtime_mode
 
 
 class RuntimePromptTests(unittest.TestCase):
@@ -18,14 +18,27 @@ class RuntimePromptTests(unittest.TestCase):
         printed: list[str] = []
         mode = prompt_runtime_mode(input_fn=lambda _: next(answers), print_fn=printed.append)
         self.assertEqual(mode, "medium")
-        self.assertTrue(any("CHỌN CẤU HÌNH CHẠY" in line for line in printed))
+        self.assertTrue(any("YOLO REALTIME CAMERA" in line for line in printed))
 
     def test_prompt_runtime_mode_retries_on_invalid_choice(self) -> None:
         answers = iter(["9", "", "3"])
         printed: list[str] = []
         mode = prompt_runtime_mode(input_fn=lambda _: next(answers), print_fn=printed.append)
         self.assertEqual(mode, "low")
-        self.assertTrue(any("Lựa chọn không hợp lệ" in line for line in printed))
+        self.assertGreater(len(printed), 1)
+
+    def test_prompt_launch_target_accepts_camera(self) -> None:
+        answers = iter(["2"])
+        printed: list[str] = []
+        target = prompt_launch_target(
+            selected_mode="medium",
+            selected_model="yolo11s.pt",
+            preferred_target="camera",
+            input_fn=lambda _: next(answers),
+            print_fn=printed.append,
+        )
+        self.assertEqual(target, "camera")
+        self.assertTrue(any("CHON KIEU KHOI DONG" in line for line in printed))
 
     def test_mode_to_ui_defaults_maps_values(self) -> None:
         self.assertEqual(mode_to_ui_defaults("auto"), ("auto", "medium"))

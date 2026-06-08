@@ -14,7 +14,7 @@ class ChatMessage:
     sender: Literal["user", "ai"]
     text: str
     attachment_path: str | None = None
-    attachment_kind: Literal["image", "text"] | None = None
+    attachment_kind: Literal["image", "text", "camera"] | None = None
 
 
 @dataclass
@@ -48,8 +48,9 @@ def build_chat_arg_parser(description: str) -> argparse.ArgumentParser:
 
 def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: str = "desktop", selected_model: str | None = None) -> int:
     try:
-        from PySide6.QtCore import QSize, QTimer, Qt, Signal
-        from PySide6.QtGui import QAction, QCloseEvent, QIcon, QImage, QPixmap
+        from PySide6.QtCore import QByteArray, QSize, QTimer, Qt, Signal
+        from PySide6.QtGui import QAction, QCloseEvent, QIcon, QImage, QPainter, QPixmap
+        from PySide6.QtSvg import QSvgRenderer
         from PySide6.QtWidgets import (
             QApplication,
             QComboBox,
@@ -85,7 +86,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "new_chat": "New chat",
             "search": "Search chats",
             "history": "Chat history",
-            "settings": "Setting",
+            "settings": "Settings",
             "greeting_title": "Hello! 👋",
             "greeting_text": "How can I help today?",
             "input_placeholder": "Type your message...",
@@ -110,6 +111,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "ai_reply_image": "Image received. I will use it as input for this chat.",
             "ai_reply_camera": "Camera snapshot received and added to the chat.",
             "empty_send": "Enter a message before sending.",
+            "info_title": "Info",
             "settings_title": "Settings",
             "camera_window": "Camera",
             "attach_image_label": "Selected image",
@@ -119,12 +121,57 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "today": "Today",
             "yesterday": "Yesterday",
             "days_ago": "days ago",
+            "english": "English",
+            "vietnamese": "Vietnamese",
+        },
+        "vi": {
+            "new_chat": "Chat mới",
+            "search": "Tìm kiếm đoạn chat",
+            "history": "Lịch sử chat",
+            "settings": "Cài đặt",
+            "greeting_title": "Chào bạn! 👋",
+            "greeting_text": "Hôm nay bạn cần tôi hỗ trợ gì?",
+            "input_placeholder": "Nhập tin nhắn...",
+            "camera": "Mở camera",
+            "choose_image": "Chọn ảnh",
+            "choose_text": "Chọn tệp .txt",
+            "general": "Chung",
+            "settings_intro": "Điều chỉnh giao diện và ngôn ngữ hiển thị của ứng dụng.",
+            "appearance": "Giao diện",
+            "appearance_desc": "Chọn giao diện hiển thị cho ứng dụng.",
+            "language": "Ngôn ngữ",
+            "language_desc": "Chọn ngôn ngữ hiển thị cho ứng dụng.",
+            "system": "Hệ thống",
+            "dark": "Tối",
+            "light": "Sang",
+            "capture": "Chụp",
+            "camera_ready": "Camera đã sẵn sàng. Nhấn Chụp để thêm ảnh vào đoạn chat.",
+            "camera_unavailable": "Không mở được camera.",
+            "camera_missing": "Chưa cài opencv-python.",
+            "txt_title": "Xem trước tệp",
+            "ai_reply_text": "Tôi đã nhận nội dung và sẽ xử lý trong ngữ cảnh đoạn chat này.",
+            "ai_reply_image": "Đã nhận ảnh. Tôi sẽ dùng ảnh làm dữ liệu đầu vào cho đoạn chat này.",
+            "ai_reply_camera": "Đã nhận ảnh chụp từ camera và thêm vào đoạn chat.",
+            "empty_send": "Hãy nhập tin nhắn trước khi gửi.",
+            "info_title": "Thông tin",
+            "settings_title": "Cài đặt",
+            "camera_window": "Camera",
+            "attach_image_label": "Ảnh đã chọn",
+            "attach_text_label": "Tệp văn bản",
+            "attach_camera_label": "Ảnh chụp camera",
+            "mode_badge": "Chế độ",
+            "today": "Hôm nay",
+            "yesterday": "Hôm qua",
+            "days_ago": "ngày trước",
+            "english": "Tiếng Anh",
+            "vietnamese": "Tiếng Việt",
         }
     }
 
     DARK_STYLESHEET = """
-    QMainWindow, QDialog {
+    QMainWindow, QDialog, QWidget {
         background: #202123;
+        font-family: "Segoe UI", "Arial", sans-serif;
     }
     QWidget#Root,
     QWidget#ChatPanel,
@@ -140,6 +187,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     }
     QLabel#Headline {
         font-size: 34px;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    QLabel#BrandText {
+        font-size: 26px;
         font-weight: 700;
         color: #ffffff;
     }
@@ -249,6 +301,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         padding: 2px 4px;
         min-height: 26px;
         max-height: 120px;
+    }
+    QPlainTextEdit#ComposerInput,
+    QPlainTextEdit#ComposerInput QWidget {
+        background: transparent;
+        border: none;
     }
     QPlainTextEdit {
         padding-top: 14px;
@@ -425,8 +482,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     """
 
     LIGHT_STYLESHEET = """
-    QMainWindow, QDialog {
+    QMainWindow, QDialog, QWidget {
         background: #f3f4f6;
+        font-family: "Segoe UI", "Arial", sans-serif;
     }
     QWidget#Root,
     QWidget#ChatPanel,
@@ -442,6 +500,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     }
     QLabel#Headline {
         font-size: 34px;
+        font-weight: 700;
+        color: #111827;
+    }
+    QLabel#BrandText {
+        font-size: 26px;
         font-weight: 700;
         color: #111827;
     }
@@ -551,6 +614,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         padding: 2px 4px;
         min-height: 26px;
         max-height: 120px;
+    }
+    QPlainTextEdit#ComposerInput,
+    QPlainTextEdit#ComposerInput QWidget {
+        background: transparent;
+        border: none;
     }
     QPlainTextEdit {
         padding-top: 14px;
@@ -727,12 +795,35 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     """
 
     def tr(language: str, key: str) -> str:
-        return TRANSLATIONS[language][key]
+        return TRANSLATIONS.get(language, TRANSLATIONS["en"]).get(key, TRANSLATIONS["en"].get(key, key))
 
     ICONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "icons")
+    ICON_CACHE: dict[tuple[str, str, int], QIcon] = {}
 
     def icon(name: str) -> QIcon:
         return QIcon(os.path.join(ICONS_DIR, name))
+
+    def themed_icon(name: str, color: str, size: int) -> QIcon:
+        cache_key = (name, color, size)
+        if cache_key in ICON_CACHE:
+            return ICON_CACHE[cache_key]
+        path = Path(ICONS_DIR) / name
+        if not path.exists():
+            return QIcon()
+        svg_text = path.read_text(encoding="utf-8")
+        svg_text = svg_text.replace("currentColor", color).replace("#AAB0BC", color)
+        renderer = QSvgRenderer(QByteArray(svg_text.encode("utf-8")))
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        result = QIcon(pixmap)
+        ICON_CACHE[cache_key] = result
+        return result
+
+    def themed_pixmap(name: str, color: str, size: int) -> QPixmap:
+        return themed_icon(name, color, size).pixmap(size, size)
 
     class CameraCaptureDialog(QDialog):
         captured = Signal(str)
@@ -965,7 +1056,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.window.apply_theme()
 
         def on_language_changed(self, index: int) -> None:
-            self.window.language = "en"
+            self.window.language = "en" if index == 0 else "vi"
             self.window.retranslate_ui()
             self.retranslate_dialog()
 
@@ -988,15 +1079,23 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.theme_combo.setCurrentIndex(theme_index)
             self.theme_combo.blockSignals(False)
 
-            language_index = 0
+            language_index = 0 if self.window.language == "en" else 1
             self.language_combo.blockSignals(True)
             self.language_combo.clear()
-            self.language_combo.addItems(["English"])
+            self.language_combo.addItems([tr(language, "english"), tr(language, "vietnamese")])
             self.language_combo.setCurrentIndex(language_index)
             self.language_combo.blockSignals(False)
 
     class HistoryItemWidget(QFrame):
-        def __init__(self, title: str, subtitle: str, *, selected: bool = False, parent: QWidget | None = None) -> None:
+        def __init__(
+            self,
+            title: str,
+            subtitle: str,
+            *,
+            icon_color: str,
+            selected: bool = False,
+            parent: QWidget | None = None,
+        ) -> None:
             super().__init__(parent)
             self.setObjectName("HistoryItem")
             self.setProperty("selected", selected)
@@ -1005,7 +1104,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             layout.setSpacing(10)
 
             icon_label = QLabel()
-            icon_label.setPixmap(icon("chat_history.svg").pixmap(20, 20))
+            icon_label.setPixmap(themed_pixmap("chat_history.svg", icon_color, 20))
             icon_label.setFixedSize(20, 20)
             layout.addWidget(icon_label, 0, Qt.AlignTop)
 
@@ -1045,12 +1144,17 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             bubble_layout.setSpacing(8)
 
             if message.attachment_path:
+                attachment_key = {
+                    "image": "attach_image_label",
+                    "text": "attach_text_label",
+                    "camera": "attach_camera_label",
+                }.get(message.attachment_kind, "attach_image_label")
                 attachment_label = QLabel(
-                    f"{tr(language, 'attach_image_label') if message.attachment_kind == 'image' else tr(language, 'attach_text_label')}: {Path(message.attachment_path).name}"
+                    f"{tr(language, attachment_key)}: {Path(message.attachment_path).name}"
                 )
                 attachment_label.setObjectName("Attachment")
                 bubble_layout.addWidget(attachment_label)
-                if message.attachment_kind == "image":
+                if message.attachment_kind in {"image", "camera"}:
                     pixmap = QPixmap(message.attachment_path)
                     if not pixmap.isNull():
                         preview = QLabel()
@@ -1070,8 +1174,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     class ChatWindow(QMainWindow):
         def __init__(self, *, title: str, initial_camera_index: int, mode_label: str, model_label: str | None) -> None:
             super().__init__()
-            self.language = "en"
+            self.language = "vi"
             self.theme_mode = "dark"
+            self.effective_theme = "dark"
             self.sidebar_expanded = True
             self.is_refreshing_history = False
             self.initial_camera_index = initial_camera_index
@@ -1108,10 +1213,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             header.setContentsMargins(0, 0, 0, 0)
             header.setSpacing(12)
             self.brand_text = QLabel("Chat AI")
-            self.brand_text.setStyleSheet("font-size: 26px; font-weight: 700; color: white;")
+            self.brand_text.setObjectName("BrandText")
             self.sidebar_app_button = QPushButton()
             self.sidebar_app_button.setObjectName("SidebarAppButton")
-            self.sidebar_app_button.setIcon(icon("sidebar_app.svg"))
             self.sidebar_app_button.setIconSize(QSize(28, 28))
             self.sidebar_app_button.clicked.connect(self.toggle_sidebar)
             header.addWidget(self.brand_text)
@@ -1121,7 +1225,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.new_chat_button = QPushButton()
             self.new_chat_button.setObjectName("SidebarPrimaryButton")
-            self.new_chat_button.setIcon(icon("new_chat.svg"))
             self.new_chat_button.setIconSize(QSize(20, 20))
             self.new_chat_button.clicked.connect(self.start_new_chat)
             sidebar_layout.addWidget(self.new_chat_button)
@@ -1132,7 +1235,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             search_layout.setContentsMargins(14, 10, 14, 10)
             search_layout.setSpacing(10)
             self.search_icon = QLabel()
-            self.search_icon.setPixmap(icon("search.svg").pixmap(18, 18))
             self.search_icon.setFixedSize(18, 18)
             search_layout.addWidget(self.search_icon)
             self.search_input = QLineEdit()
@@ -1144,7 +1246,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.search_compact_button = QPushButton()
             self.search_compact_button.setObjectName("SidebarCompactSearchButton")
-            self.search_compact_button.setIcon(icon("search.svg"))
             self.search_compact_button.setIconSize(QSize(22, 22))
             self.search_compact_button.setToolTip(tr(self.language, "search"))
             self.search_compact_button.clicked.connect(self.focus_search)
@@ -1174,7 +1275,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.settings_button = QPushButton()
             self.settings_button.setObjectName("SidebarFooterButton")
-            self.settings_button.setIcon(icon("settings.svg"))
             self.settings_button.setIconSize(QSize(20, 20))
             self.settings_button.clicked.connect(self.open_settings)
             sidebar_layout.addWidget(self.settings_button)
@@ -1191,11 +1291,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.mode_badge = QLabel()
             self.mode_badge.setObjectName("Subtle")
             top_row.addWidget(self.mode_badge)
-            self.theme_hint = QLabel("☼")
+            self.theme_hint = QLabel("\u2600")
             self.theme_hint.setObjectName("Subtle")
             self.theme_hint.setStyleSheet("font-size: 22px;")
             top_row.addWidget(self.theme_hint)
-            self.more_hint = QLabel("•••")
+            self.more_hint = QLabel("\u22ef")
             self.more_hint.setObjectName("Subtle")
             self.more_hint.setStyleSheet("font-size: 22px;")
             top_row.addWidget(self.more_hint)
@@ -1233,19 +1333,22 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             composer_layout.setContentsMargins(14, 10, 10, 10)
             composer_layout.setSpacing(8)
 
-            self.plus_button = QPushButton("+")
+            self.plus_button = QPushButton("")
             self.plus_button.setObjectName("RoundButton")
             self.plus_button.clicked.connect(self.show_plus_menu)
             composer_layout.addWidget(self.plus_button, 0, Qt.AlignVCenter)
 
             self.message_input = QPlainTextEdit()
+            self.message_input.setObjectName("ComposerInput")
             self.message_input.setMinimumHeight(26)
             self.message_input.setMaximumHeight(120)
             self.message_input.setFrameShape(QFrame.NoFrame)
             self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            self.message_input.viewport().setAutoFillBackground(False)
+            self.message_input.viewport().setStyleSheet("background: transparent;")
             composer_layout.addWidget(self.message_input, 1)
 
-            self.micro_button = QPushButton("🎤")
+            self.micro_button = QPushButton("")
             self.micro_button.setObjectName("RoundButton")
             composer_layout.addWidget(self.micro_button, 0, Qt.AlignVCenter)
 
@@ -1260,9 +1363,32 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             app = QApplication.instance()
             if app is None:
                 return
-            effective_theme = "dark" if self.theme_mode == "system" else self.theme_mode
-            app.setStyleSheet(DARK_STYLESHEET if effective_theme == "dark" else LIGHT_STYLESHEET)
+            self.effective_theme = "dark" if self.theme_mode == "system" else self.theme_mode
+            app.setStyleSheet(DARK_STYLESHEET if self.effective_theme == "dark" else LIGHT_STYLESHEET)
+            self.apply_theme_assets()
             self.refresh_history()
+
+        def icon_color(self) -> str:
+            return "#ECECF1" if self.effective_theme == "dark" else "#111827"
+
+        def subtle_icon_color(self) -> str:
+            return "#AAB0BC" if self.effective_theme == "dark" else "#6B7280"
+
+        def apply_theme_assets(self) -> None:
+            strong = self.icon_color()
+            subtle = self.subtle_icon_color()
+            self.sidebar_app_button.setIcon(themed_icon("sidebar_app.svg", strong, 28))
+            self.new_chat_button.setIcon(themed_icon("new_chat.svg", strong, 22))
+            self.search_compact_button.setIcon(themed_icon("search.svg", subtle, 22))
+            self.settings_button.setIcon(themed_icon("settings.svg", strong, 22))
+            self.search_icon.setPixmap(themed_pixmap("search.svg", subtle, 18))
+            self.plus_button.setIcon(themed_icon("plus.svg", strong, 18))
+            self.plus_button.setIconSize(QSize(18, 18))
+            self.micro_button.setIcon(themed_icon("mic.svg", strong, 18))
+            self.micro_button.setIconSize(QSize(18, 18))
+            self.send_button.setText("\u2191")
+            self.theme_hint.setText("\u263E" if self.effective_theme == "dark" else "\u2600")
+            self.more_hint.setText("\u22EF")
 
         def retranslate_ui(self) -> None:
             self.new_chat_button.setText(tr(self.language, "new_chat"))
@@ -1370,6 +1496,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 widget = HistoryItemWidget(
                     conversation.title,
                     conversation.subtitle,
+                    icon_color=self.subtle_icon_color(),
                     selected=index == self.active_conversation_index,
                 )
                 self.history_list.setItemWidget(item, widget)
@@ -1449,7 +1576,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         def send_message(self) -> None:
             text = self.message_input.toPlainText().strip()
             if not text:
-                QMessageBox.information(self, "Info", tr(self.language, "empty_send"))
+                QMessageBox.information(self, tr(self.language, "info_title"), tr(self.language, "empty_send"))
                 return
             self.add_message(ChatMessage(sender="user", text=text))
             self.message_input.clear()
@@ -1519,7 +1646,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                     sender="user",
                     text=tr(self.language, "attach_camera_label"),
                     attachment_path=path,
-                    attachment_kind="image",
+                    attachment_kind="camera",
                 )
             )
             self.add_message(ChatMessage(sender="ai", text=self.build_ai_reply(text=path, source="camera")))
