@@ -38,7 +38,7 @@ class RuntimePromptTests(unittest.TestCase):
             print_fn=printed.append,
         )
         self.assertEqual(target, "camera")
-        self.assertTrue(any("CHON KIEU KHOI DONG" in line for line in printed))
+        self.assertTrue(any("CHỌN KIỂU KHỞI ĐỘNG" in line for line in printed))
 
     def test_mode_to_ui_defaults_maps_values(self) -> None:
         self.assertEqual(mode_to_ui_defaults("auto"), ("auto", "medium"))

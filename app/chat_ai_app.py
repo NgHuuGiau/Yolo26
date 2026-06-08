@@ -143,7 +143,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "language_desc": "Chọn ngôn ngữ hiển thị cho ứng dụng.",
             "system": "Hệ thống",
             "dark": "Tối",
-            "light": "Sang",
+            "light": "Sáng",
             "capture": "Chụp",
             "camera_ready": "Camera đã sẵn sàng. Nhấn Chụp để thêm ảnh vào đoạn chat.",
             "camera_unavailable": "Không mở được camera.",
@@ -493,28 +493,29 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     }
     QLabel {
         background: transparent;
-        color: #14161a;
+        color: #0a0a0a;
+        font-weight: 500;
     }
     QLabel#Subtle {
-        color: #6b7280;
+        color: #374151;
     }
     QLabel#Headline {
         font-size: 34px;
         font-weight: 700;
-        color: #111827;
+        color: #000000;
     }
     QLabel#BrandText {
         font-size: 26px;
         font-weight: 700;
-        color: #111827;
+        color: #000000;
     }
     QLabel#SectionTitle {
-        color: #111827;
+        color: #000000;
         font-size: 15px;
         font-weight: 600;
     }
     QLabel#Attachment {
-        color: #2f55d4;
+        color: #000000;
         font-weight: 600;
     }
     QFrame#Sidebar {
@@ -1350,6 +1351,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.micro_button = QPushButton("")
             self.micro_button.setObjectName("RoundButton")
+            self.micro_button.clicked.connect(self.start_voice_input)
             composer_layout.addWidget(self.micro_button, 0, Qt.AlignVCenter)
 
             self.send_button = QPushButton("↑")
@@ -1554,13 +1556,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             image_action.triggered.connect(self.pick_image)
             menu.addAction(image_action)
 
-            text_action = QAction(tr(self.language, "choose_text"), self)
-            text_action.triggered.connect(self.pick_text_file)
-            menu.addAction(text_action)
-
             camera_action = QAction(tr(self.language, "camera"), self)
             camera_action.triggered.connect(self.open_camera)
             menu.addAction(camera_action)
+
             menu.exec(self.plus_button.mapToGlobal(self.plus_button.rect().bottomLeft()))
 
         def add_message(self, message: ChatMessage) -> None:
@@ -1581,6 +1580,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.add_message(ChatMessage(sender="user", text=text))
             self.message_input.clear()
             self.add_message(ChatMessage(sender="ai", text=self.build_ai_reply(text=text, source="text")))
+
+        def start_voice_input(self) -> None:
+            QMessageBox.information(self, tr(self.language, "info_title"), "Voice input not yet implemented.")
 
         def build_ai_reply(self, *, text: str, source: str) -> str:
             if source == "image":

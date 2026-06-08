@@ -224,7 +224,7 @@ def _render_prompt(hardware: Any | None = None, recommendations: dict[str, Any] 
     )
     lines = [
         _line(_rule("="), CYAN),
-        _line(_pad("YOLO REALTIME CAMERA :: CHỌN CẤU HÌNH CHẠY"), BOLD + CYAN),
+        _line(_pad("YOLO REALTIME CAMERA : CHỌN CẤU HÌNH CHẠY"), BOLD + CYAN),
         _line(_rule("="), CYAN),
         _row("Phần cứng", hardware_summary, GREEN, bounded=False),
         _row("Đề xuất", f"{mode_label(suggested_mode)} | hệ thống đã thăm dò máy trước khi chạy.", YELLOW, bounded=False),
@@ -284,29 +284,29 @@ def prompt_launch_target(
         _clear_terminal()
         lines = [
             _line(_rule("="), CYAN),
-            _line(_pad("YOLO REALTIME CAMERA :: CHON KIEU KHOI DONG"), BOLD + CYAN),
+            _line(_pad("YOLO REALTIME CAMERA :: CHỌN KIỂU KHỞI ĐỘNG"), BOLD + CYAN),
             _line(_rule("="), CYAN),
-            _row("Cau hinh", f"{mode_label(selected_mode)} | {selected_model}", GREEN, bounded=False),
-            _row("De xuat", launch_target_label(preferred_target), YELLOW, bounded=False),
+_row("Cấu hình", f"{mode_label(selected_mode)} | {selected_model}", GREEN, bounded=False),
+             _row("Đề xuất", launch_target_label(preferred_target), YELLOW, bounded=False),
             _line(_rule("-"), CYAN),
-            _section("2 LUA CHON", MAGENTA),
-            _row("1 | UI DESKTOP", "Mo giao dien desktop / chat.", GREEN),
-            _row("2 | CAMERA", "Chay detect realtime chi voi camera.", YELLOW),
-            _line(_rule("."), DIM),
-            _row("0 | THOAT", "Dong chuong trinh ngay tai day.", RED),
+_section("2 LỰA CHỌN", MAGENTA),
+             _row("1 | UI DESKTOP", "Mở giao diện desktop / chat.", GREEN),
+             _row("2 | CAMERA", "Chạy detect realtime chỉ với camera.", YELLOW),
+             _line(_rule("."), DIM),
+             _row("0 | THOÁT", "Đóng chương trình ngay tại đây.", RED),
             _line(_rule("-"), CYAN),
         ]
         for item in lines:
             print_fn(item)
-        target = START_TARGET_CHOICES.get(input_fn(_line("Nhap lua chon cua ban (0/1/2): ", BOLD)).strip())
+        target = START_TARGET_CHOICES.get(input_fn(_line("Nhập lựa chọn của bạn (0/1/2): ", BOLD)).strip())
         if target == "exit":
             raise SystemExit(0)
         if target:
             print_fn("")
-            print_fn(_line(f"Da chon kieu chay: {launch_target_label(target)}", GREEN))
+            print_fn(_line(f"Đã chọn kiểu chạy: {launch_target_label(target)}", GREEN))
             return target
-        print_fn(_line("Lua chon khong hop le. Vui long nhap 0, 1 hoac 2.", RED))
-        input_fn(_line("Nhan Enter de chon lai...", DIM))
+        print_fn(_line("Lựa chọn không hợp lệ. Vui lòng nhập 0, 1, 2 hoặc 3.", RED))
+        input_fn(_line("Nhấn Enter để chọn lại...", DIM))
 
 
 def _dashboard_values(runtime: Any, hardware: Any, camera_index: int, launch_target: str | None = None) -> dict[str, Any]:
@@ -372,7 +372,7 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _line(_rule("="), CYAN),
         _line(_pad(title), BOLD + CYAN),
         _line(_rule("="), CYAN),
-        _row("Kieu chay", values["launch_target"] or "-", CYAN),
+        _row("Kiểu chạy", values["launch_target"] or "-", CYAN),
         _row("Lựa chọn", values["chosen_label"], GREEN),
         _row("Mục tiêu", f"{values['requested_profile']} -> {values['cuda_target']}", MAGENTA),
         _row("Thực tế", f"{profile_label(values['runtime_profile'])} ({values['runtime_profile']})", values["profile_color"]),

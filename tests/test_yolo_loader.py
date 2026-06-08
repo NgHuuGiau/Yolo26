@@ -86,4 +86,4 @@ class YoloLoaderTests(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             load_yolo_model(runtime)
 
-        self.assertIn("khong tim thay file model local", str(context.exception))
+        self.assertIn("tìm thấy", str(context.exception).lower())

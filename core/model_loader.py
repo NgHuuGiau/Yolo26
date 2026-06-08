@@ -67,7 +67,7 @@ def load_yolo_model(runtime: RuntimeConfig) -> Tuple[LoadedModel, str]:
     for model_name in runtime.candidate_models:
         candidate_paths = _candidate_paths(model_name)
         if not candidate_paths:
-            errors.append(f"{model_name}: khong tim thay file model local")
+            errors.append(f"{model_name}: không tìm thấy file model local")
             logger.warning("No local file found for model %s", model_name)
             continue
         if yolo_cls is None:

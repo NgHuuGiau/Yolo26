@@ -73,8 +73,8 @@ class RuntimeConfig:
 
     def pretty_report(self) -> str:
         return (
-            "===== CAU HINH DUOC CHON =====\n"
-            f"Che do: {self.mode}\n"
+            "===== CẤU HÌNH ĐƯỢC CHỌN =====\n"
+            f"Chế độ: {self.mode}\n"
             f"Profile: {self.profile_name}\n"
             f"Phan cung: {self.hardware_tier}\n"
             f"Device: {self.resolved_device}\n"

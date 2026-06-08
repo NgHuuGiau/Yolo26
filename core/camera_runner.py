@@ -133,7 +133,7 @@ class CameraStream:
         self.camera_index = camera_index
         self.max_consecutive_read_failures = max_consecutive_read_failures
         self.consecutive_read_failures = 0
-        self.last_status_message = "San sang khoi tao camera."
+        self.last_status_message = "Sẵn sàng khởi tạo camera."
         self.last_error_message = ""
         self.capture: cv2.VideoCapture | None = None
         self.capture_thread: threading.Thread | None = None
@@ -152,7 +152,7 @@ class CameraStream:
             raise RuntimeError("Không mở được camera.")
         self.consecutive_read_failures = 0
         self.last_error_message = ""
-        self.last_status_message = "Da mo camera thanh cong."
+        self.last_status_message = "Đã mở camera thành công."
         self.latest_captured_frame = None
         self.capture_ready_event.clear()
         self._start_capture_worker()
@@ -178,7 +178,7 @@ class CameraStream:
         if self.capture is not None:
             self.capture.release()
             self.capture = None
-        self.last_status_message = "Camera da dung."
+        self.last_status_message = "Camera đã dừng."
 
     def _start_capture_worker(self) -> None:
         self.capture_stop_event.clear()
@@ -252,7 +252,7 @@ class CameraDetector:
         self.last_frame_ts = time.perf_counter()
         self.smoothed_fps = 0.0
         self.recovery_count = 0
-        self.last_status_message = "San sang khoi tao camera."
+        self.last_status_message = "Sẵn sàng khởi tạo camera."
         self.last_error_message = ""
         self.active_runtime_summary = ""
         self.last_raw_frame: np.ndarray | None = None
@@ -306,27 +306,27 @@ class CameraDetector:
                     f"{self.runtime.active_model_name or self.runtime.primary_model_name} | "
                     f"{self.runtime.resolved_device} | imgsz {self.runtime.imgsz}"
                 )
-                self.last_status_message = f"Da khoi tao camera thanh cong. Dang chay voi {self.active_runtime_summary}."
+                self.last_status_message = f"Đã khởi tạo camera thành công. Đang chạy với {self.active_runtime_summary}."
                 logger.info("Detector initialized with %s", self.runtime.summary())
                 return
             except Exception as exc:
                 last_error = exc
                 self.last_error_message = str(exc)
-                self.last_status_message = "Khoi tao runtime that bai, dang thu fallback."
+                self.last_status_message = "Khởi tạo runtime thất bại, đang thử fallback."
                 logger.warning("Runtime failed, trying fallback: %s", exc)
                 self.release()
         raise RuntimeError(f"Không khởi tạo được detector. Lỗi cuối: {last_error}")
 
     def read_and_detect(self) -> tuple[bool, Any, list[DetectionRecord], float]:
         if self.camera_stream is None or self.loaded_model is None:
-            raise RuntimeError("Detector chua duoc khoi tao.")
+            raise RuntimeError("Detector chưa được khởi tạo.")
         if self.pending_inference_error is not None:
             exc = self.pending_inference_error
             self.pending_inference_error = None
             logger.warning("Inference failed on %s: %s", self.runtime.primary_model_name, exc)
             self.recovery_count += 1
             self.last_error_message = str(exc)
-            self.last_status_message = "Suy luan bi loi, he thong dang tu phuc hoi va thu cau hinh an toan hon."
+            self.last_status_message = "Suy luận bị lỗi, hệ thống đang tự phục hồi và thử cấu hình an toàn hơn."
             self.initialize()
             return False, None, [], 0.0
 
@@ -335,7 +335,7 @@ class CameraDetector:
             self.last_error_message = self.camera_stream.last_error_message
             self.last_status_message = self.camera_stream.last_status_message
             if self.camera_stream.consecutive_read_failures >= self.camera_stream.max_consecutive_read_failures:
-                raise RuntimeError("Camera lien tuc khong tra ve frame.")
+                raise RuntimeError("Camera liên tục không trả về frame.")
             return False, None, [], 0.0
         self.last_raw_frame = frame.copy()
         self.frame_index += 1
@@ -346,7 +346,7 @@ class CameraDetector:
                 logger.warning("Inference failed on %s: %s", self.runtime.primary_model_name, exc)
                 self.recovery_count += 1
                 self.last_error_message = str(exc)
-                self.last_status_message = "Suy luan bi loi, he thong dang tu phuc hoi va thu cau hinh an toan hon."
+                self.last_status_message = "Suy luận bị lỗi, hệ thống đang tự phục hồi và thử cấu hình an toàn hơn."
                 self.initialize()
                 return False, None, [], 0.0
         else:
@@ -358,7 +358,7 @@ class CameraDetector:
             box_thickness=self._effective_box_thickness(),
             label_font_scale=self._effective_label_font_scale(),
         )
-        self.last_status_message = f"Dang nhan dien on dinh voi {len(detections)} doi tuong."
+        self.last_status_message = f"Đang nhận diện ổn định với {len(detections)} đối tượng."
         fps = self._update_fps()
         return True, processed_frame, detections, fps
 
@@ -511,7 +511,7 @@ class CameraDetector:
         if self.camera_stream is not None:
             self.camera_stream.release()
             self.camera_stream = None
-        self.last_status_message = "Camera da dung."
+        self.last_status_message = "Camera đã dừng."
 
     def save_training_sample(
         self,
@@ -538,7 +538,7 @@ class CameraDetector:
             encoding="utf-8",
         )
         _update_training_data_name(name_prefix)
-        self.last_status_message = f"Da luu mau train: {image_path.name} va {label_path.name} ({len(detections)} nhan)."
+        self.last_status_message = f"Đã lưu mẫu train: {image_path.name} và {label_path.name} ({len(detections)} nhãn)."
         logger.info("Saved training sample: %s | %s", image_path, label_path)
         return image_path, label_path
 
@@ -759,12 +759,12 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
                 frozen_frame = None
                 frozen_detections = []
                 capture_prep = _start_capture_preparation()
-                detector.last_status_message = "Bat dau chup lai mau train."
+                detector.last_status_message = "Bắt đầu chụp lại mẫu train."
                 return False
             typed_name, should_save, should_cancel = _handle_name_input(typed_name, key)
             if should_cancel:
                 naming_mode, frozen_frame, frozen_detections, typed_name = _reset_capture_flow()
-                detector.last_status_message = "Da huy luu mau train."
+                detector.last_status_message = "Đã hủy lưu mẫu train."
                 return False
             if should_save and frozen_frame is not None:
                 image_path, label_path = detector.save_training_sample(
@@ -772,19 +772,19 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
                     detections=frozen_detections,
                     sample_name=typed_name,
                 )
-                logger.info("Da luu %s va %s", image_path.name, label_path.name)
+                logger.info("Đã lưu %s và %s", image_path.name, label_path.name)
                 naming_mode, frozen_frame, frozen_detections, typed_name = _reset_capture_flow()
             return False
 
         if capture_prep is not None:
             if key == 27:
                 capture_prep = None
-                detector.last_status_message = "Da huy che do chup mau train."
+                detector.last_status_message = "Đã hủy chế độ chụp mẫu train."
             return False
 
         if key in (ord("t"), ord("T")):
             capture_prep = CapturePreparationState(stable_since=time.perf_counter())
-            detector.last_status_message = "Bat dau dem nguoc 5 giay de chup mau train."
+            detector.last_status_message = "Bắt đầu đếm ngược 5 giây để chụp mẫu train."
             return False
         if key == 27:
             return True
@@ -815,7 +815,7 @@ def run_camera_session(runtime: RuntimeConfig, camera_index: int = 0) -> None:
                     typed_name = _next_sample_sequence_name()
                     frozen_frame = detector.last_raw_frame.copy()
                     frozen_detections = list(detector.last_detections)
-                    detector.last_status_message = "Khung hinh da on dinh. Hay dat ten de luu."
+                    detector.last_status_message = "Khung hình đã ổn định. Hãy đặt tên để lưu."
             elif naming_mode and frozen_frame is not None:
                 display_frame = draw_detection_results(
                     image=frozen_frame.copy(),

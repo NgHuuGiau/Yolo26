@@ -12,7 +12,7 @@ class ConsoleUiTests(unittest.TestCase):
         self.assertIn("\u00b7", bar)
 
     def test_explain_runtime_failure_for_camera_error(self) -> None:
-        reason, suggestions, commands = explain_runtime_failure(RuntimeError("Khong mo duoc camera."))
+        reason, suggestions, commands = explain_runtime_failure(RuntimeError("Không mở được camera."))
         self.assertTrue("webcam" in reason.lower() or "camera" in reason.lower())
         self.assertTrue(any("camera index" in suggestion.lower() or "webcam" in suggestion.lower() for suggestion in suggestions))
         self.assertTrue(any("--camera-index 1" in command for command in commands))
