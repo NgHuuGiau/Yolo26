@@ -6,6 +6,48 @@ from core.hardware_info import detect_hardware
 from core.model_selector import RuntimeConfig, build_candidates, load_settings, select_runtime_config
 
 
+GPU_PROFILE_SPECS = {
+    "enthusiast": {
+        "high": {"model": "yolo11x.pt", "device": "cuda:0", "imgsz": 960, "max_det": 200},
+        "medium": {"model": "yolo11l.pt", "device": "cuda:0", "imgsz": 768, "max_det": 170},
+        "low": {"model": "yolo11m.pt", "device": "cuda:0", "imgsz": 640, "max_det": 140},
+    },
+    "strong": {
+        "high": {"model": "yolo11l.pt", "device": "cuda:0", "imgsz": 768, "max_det": 180},
+        "medium": {"model": "yolo11m.pt", "device": "cuda:0", "imgsz": 640, "max_det": 150},
+        "low": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 512, "max_det": 120},
+    },
+    "entry": {
+        "high": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 640, "max_det": 150},
+        "medium": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 512, "max_det": 120},
+        "low": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 416, "max_det": 100},
+    },
+    "weak": {
+        "high": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 416, "max_det": 100},
+        "medium": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 416, "max_det": 90},
+        "low": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 320, "max_det": 70},
+    },
+}
+CPU_PROFILE_SPECS = {
+    "strong": {
+        "high": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 416, "max_det": 80},
+        "medium": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 352, "max_det": 60},
+        "low": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 50},
+    },
+    "weak": {
+        "high": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 60},
+        "medium": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 50},
+        "low": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 256, "max_det": 40},
+    },
+}
+MODEL_QUALITY_SCORES = {
+    "yolo11x.pt": 100,
+    "yolo11l.pt": 92,
+    "yolo11m.pt": 84,
+    "yolo11s.pt": 74,
+    "yolo11n.pt": 58,
+}
+
 MODE_ORDER = ("high", "medium", "low")
 YOLO11_VARIANTS = ("yolo11x.pt", "yolo11l.pt", "yolo11m.pt", "yolo11s.pt", "yolo11n.pt")
 MODE_META = {
@@ -21,10 +63,6 @@ def mode_label(mode: str) -> str:
 
 def mode_title(mode: str) -> str:
     return MODE_META.get(mode, MODE_META["low"])["title"]
-
-
-def mode_meaning(mode: str) -> str:
-    return MODE_META.get(mode, MODE_META["low"])["meaning"]
 
 
 def load_level(hardware) -> str:
@@ -62,42 +100,9 @@ def gpu_tier(hardware) -> str:
 def profile_specs_for_hardware(hardware) -> dict[str, dict]:
     tier = gpu_tier(hardware)
     ram_gb = float(getattr(hardware, "ram_gb", 0.0) or 0.0)
-
-    if tier == "enthusiast":
-        return {
-            "high": {"model": "yolo11x.pt", "device": "cuda:0", "imgsz": 960, "max_det": 200},
-            "medium": {"model": "yolo11l.pt", "device": "cuda:0", "imgsz": 768, "max_det": 170},
-            "low": {"model": "yolo11m.pt", "device": "cuda:0", "imgsz": 640, "max_det": 140},
-        }
-    if tier == "strong":
-        return {
-            "high": {"model": "yolo11l.pt", "device": "cuda:0", "imgsz": 768, "max_det": 180},
-            "medium": {"model": "yolo11m.pt", "device": "cuda:0", "imgsz": 640, "max_det": 150},
-            "low": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 512, "max_det": 120},
-        }
-    if tier == "entry":
-        return {
-            "high": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 640, "max_det": 150},
-            "medium": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 512, "max_det": 120},
-            "low": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 416, "max_det": 100},
-        }
-    if tier == "weak":
-        return {
-            "high": {"model": "yolo11s.pt", "device": "cuda:0", "imgsz": 416, "max_det": 100},
-            "medium": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 416, "max_det": 90},
-            "low": {"model": "yolo11n.pt", "device": "cuda:0", "imgsz": 320, "max_det": 70},
-        }
-    if ram_gb >= 16:
-        return {
-            "high": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 416, "max_det": 80},
-            "medium": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 352, "max_det": 60},
-            "low": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 50},
-        }
-    return {
-        "high": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 60},
-        "medium": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 320, "max_det": 50},
-        "low": {"model": "yolo11n.pt", "device": "cpu", "imgsz": 256, "max_det": 40},
-    }
+    if tier in GPU_PROFILE_SPECS:
+        return GPU_PROFILE_SPECS[tier]
+    return CPU_PROFILE_SPECS["strong" if ram_gb >= 16 else "weak"]
 
 
 def default_mode_for_hardware(hardware) -> str:
@@ -124,13 +129,7 @@ def ceiling_mode_for_hardware(hardware) -> str:
 
 
 def quality_score(runtime: RuntimeConfig) -> int:
-    model_score = {
-        "yolo11x.pt": 100,
-        "yolo11l.pt": 92,
-        "yolo11m.pt": 84,
-        "yolo11s.pt": 74,
-        "yolo11n.pt": 58,
-    }.get(runtime.primary_model_name, 50)
+    model_score = MODEL_QUALITY_SCORES.get(runtime.primary_model_name, 50)
     imgsz_bonus = min(18, max(0, (int(runtime.imgsz) - 320) // 32))
     det_bonus = min(10, max(0, (int(runtime.max_det) - 60) // 15))
     return min(100, model_score + imgsz_bonus + det_bonus)

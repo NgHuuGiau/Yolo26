@@ -8,11 +8,7 @@ import math
 import sys
 import time
 import unittest
-import warnings
 from dataclasses import dataclass
-
-# Suppress deprecation warning for google.generativeai (will migrate to google.genai later)
-warnings.filterwarnings("ignore", category=FutureWarning)
 
 from utils.file_utils import ensure_project_directories
 
@@ -279,7 +275,6 @@ class PrettyTestRunner(unittest.TextTestRunner):
         missing = []
         deps = {
             "PySide6": "Giao diện (UI)",
-            "google.generativeai": "Gemini AI",
             "faster_whisper": "Voice Recognition",
             "pyaudio": "Audio Input",
             "pygments": "Syntax Highlighting"

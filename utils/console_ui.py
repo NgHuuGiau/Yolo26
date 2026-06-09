@@ -16,7 +16,7 @@ MODE_LABELS = {
     "low": "Yếu nhất",
 }
 START_TARGET_LABELS = {
-    "ui": "UI desktop",
+    "ui": "UX/UI desktop (run_chat.py)",
     "camera": "Camera realtime",
 }
 PROFILE_LABELS = {
@@ -45,6 +45,7 @@ YELLOW = "\033[93m"
 MAGENTA = "\033[95m"
 RED = "\033[91m"
 ORANGE = "\033[38;5;208m"
+BLUE = "\033[38;5;81m"
 DIM = "\033[2m"
 CARD_WIDTH = 96
 BOOT_BAR_WIDTH = 24
@@ -84,15 +85,16 @@ def _pad(text: str, width: int = CARD_WIDTH) -> str:
 
 
 def _rule(char: str = "=") -> str:
-    return char * CARD_WIDTH
+    glyph = {"=": "═", "-": "─", ".": "·"}.get(char, char)
+    return glyph * CARD_WIDTH
 
 
 def _section(title: str, color: str = CYAN) -> str:
-    return _line(_pad(f"[ {title} ]"), BOLD + color)
+    return _line(_pad(f"◆ {title}"), BOLD + color)
 
 
 def _row(label: str, value: str = "", color: str = "", *, bounded: bool = True) -> str:
-    content = f"{label:<18} {value}".rstrip()
+    content = f"│ {label:<16} {value}".rstrip()
     return _line(_pad(content) if bounded else content, color)
 
 
@@ -123,10 +125,11 @@ def row(label: str, value: str = "", color: str = "", *, bounded: bool = True) -
 
 
 def header(title: str, color: str = CYAN) -> list[str]:
+    border = _rule("=")[:-2]
     return [
-        _line(_rule("="), color),
-        _line(_pad(title), BOLD + color),
-        _line(_rule("="), color),
+        _line(f"╔{border}╗", color),
+        _line(f"║ {_pad(title, CARD_WIDTH - 4)} ║", BOLD + color),
+        _line(f"╚{border}╝", color),
     ]
 
 

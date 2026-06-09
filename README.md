@@ -25,6 +25,7 @@ Dự án hiện có:
 - menu tổng để chạy nhanh các file chính
 - bộ test để kiểm tra toàn hệ thống
 - tự động fallback khi model hoặc cấu hình chính lỗi
+- nhận dạng giọng nói (Whisper)ình chính lỗi
 - chat AI với Gemini API (PySide6 GUI)
 - nhận dạng giọng nói (Whisper)
 
@@ -57,7 +58,6 @@ Dự án hiện có:
 **Thư viện Chat AI**
 
 - `PySide6`
-- `google-generativeai`
 - `faster-whisper`
 - `pyaudio`
 

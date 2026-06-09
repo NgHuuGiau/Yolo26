@@ -654,10 +654,6 @@ def _start_capture_preparation() -> CapturePreparationState:
     return CapturePreparationState(stable_since=time.time())
 
 
-def _scale_int(value: int, scale: float) -> int:
-    return int(round(value * scale))
-
-
 def _compose_camera_only_layout(frame: np.ndarray) -> np.ndarray:
     global CURRENT_LAYOUT_SIZE
     CURRENT_LAYOUT_SIZE = (CAMERA_ONLY_WIDTH, CAMERA_ONLY_HEIGHT)

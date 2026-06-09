@@ -8,7 +8,6 @@ from app.chat_bootstrap import resolve_start_bundle, resolve_start_options
 
 
 class ChatBootstrapTests(unittest.TestCase):
-    @patch("app.chat_bootstrap.prompt_launch_target", return_value="camera")
     @patch("app.chat_bootstrap.prompt_runtime_mode", return_value="high")
     @patch("app.chat_bootstrap.select_runtime_config_optimized")
     @patch("app.chat_bootstrap.detect_hardware")
@@ -17,7 +16,6 @@ class ChatBootstrapTests(unittest.TestCase):
         detect_hardware_mock,
         select_runtime_mock,
         prompt_mode_mock,
-        prompt_target_mock,
     ) -> None:
         hardware = object()
         detect_hardware_mock.return_value = hardware
@@ -48,11 +46,6 @@ class ChatBootstrapTests(unittest.TestCase):
         self.assertEqual(start_options.selected_model, "high.pt")
         self.assertEqual(start_options.launch_target, "camera")
         prompt_mode_mock.assert_called_once()
-        prompt_target_mock.assert_called_once_with(
-            selected_mode="high",
-            selected_model="high.pt",
-            preferred_target="camera",
-        )
         self.assertEqual(select_runtime_mock.call_count, 4)
 
     @patch("app.chat_bootstrap.prompt_launch_target")

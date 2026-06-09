@@ -9,10 +9,9 @@
 
 ### 1.1. Phụ thuộc Chat AI (tùy chọn)
 
-Nếu muốn dùng chat AI với Gemini:
+Nếu muốn dùng chat AI:
 
-- Gemini API key (lấy tại https://aistudio.google.com/app/apikey)
-- Cài đặt thêm: `PySide6`, `google-generativeai`, `faster-whisper`, `pyaudio`
+- Cài đặt thêm: `PySide6`, `faster-whisper`, `pyaudio`
 
 ## 2. Vào thư mục dự án
 
@@ -179,7 +178,7 @@ Menu có 7 tùy chọn:
 |------|------|-------|
 | `1` | `run_app.py` | Camera app - chế độ desktop |
 | `2` | `run_detect.py` | Detect camera - chế độ CLI |
-| `3` | `run_chat.py` | Chat AI với Gemini |
+| `3` | `run_chat.py` | Chat AI |
 | `4` | `run_tools.py` | Xem cấu hình máy và 3 mức tối ưu |
 | `5` | `run_train.py` | Huấn luyện model |
 | `6` | `run_doctor.py` | Kiểm tra toàn hệ thống |
@@ -215,7 +214,7 @@ App sẽ:
 
 Giống `run_app.py` nhưng chạy ở chế độ CLI detect trực tiếp.
 
-### 13.4. Chat AI với Gemini
+### 13.4. Chat AI
 
 ```powershell
 .\.venv\Scripts\python -c "from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app; args = build_chat_arg_parser('Chat AI').parse_args([]); launch_chat_ai_app(window_title='YOLO Chat AI')"

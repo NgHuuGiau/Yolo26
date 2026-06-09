@@ -249,15 +249,6 @@ Lệnh này sẽ:
 
 Sau khi cài đặt các phụ thuộc Chat AI, bạn có thể sử dụng giao diện chat:
 
-```python
-# run_chat.py
-from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app
-
-if __name__ == "__main__":
-    args = build_chat_arg_parser("YOLO Chat AI").parse_args()
-    launch_chat_ai_app(window_title="YOLO Chat AI", camera_index=args.camera_index)
-```
-
 Tính năng chat AI bao gồm:
 
 - Giao diện chat đa ngôn ngữ (Tiếng Anh/Tiếng Việt)

@@ -11,7 +11,6 @@ from core.runtime_advisor import (
     gpu_tier,
     load_level,
     mode_label,
-    mode_meaning,
     mode_title,
     quality_score,
     stability_score,
@@ -126,17 +125,6 @@ def _wow_conclusion(hardware, recommendations, auto_runtime) -> list[str]:
             f"imgsz {auto_runtime.imgsz} / max_det {auto_runtime.max_det}"
         ),
     ]
-
-
-def _menu_line(mode: str, runtime) -> str:
-    return (
-        f"{mode_title(mode):<11} | "
-        f"{mode_meaning(mode):<30} | "
-        f"{runtime.primary_model_name:<10} | "
-        f"{runtime.resolved_device:<6} | "
-        f"imgsz {runtime.imgsz:<4} | "
-        f"max_det {runtime.max_det}"
-    )
 
 
 def prompt_runtime_mode(hardware=None, recommendations=None, input_fn=input, print_fn=print) -> str:

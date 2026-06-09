@@ -9,20 +9,11 @@ import tempfile
 import time
 import random
 import sqlite3
-import warnings
 from dataclasses import dataclass, field
 import os
 import platform
 from pathlib import Path
 from typing import Literal
-
-# Suppress deprecation warning for google.generativeai (will migrate to google.genai later)
-warnings.filterwarnings("ignore", category=FutureWarning)
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
 
 try:
     from pygments import highlight
@@ -54,6 +45,18 @@ class Conversation:
     id: int | None = None
 
 
+LEGACY_SEEDED_CONVERSATION_TITLES = {
+    "Design chat AI interface",
+    "Configure YOLO11 imgsz",
+    "Choose YOLO11 version",
+    "YOLO config error",
+    "YOLO11 FPS RTX 3050 Ti",
+    "YOLO11 version and selection",
+    "Interface design request",
+    "AI health analysis",
+}
+
+
 def build_chat_arg_parser(description: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -79,7 +82,7 @@ def build_chat_arg_parser(description: str) -> argparse.ArgumentParser:
 def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: str = "desktop", selected_model: str | None = None) -> int:
     try:
         from PySide6.QtCore import QByteArray, QSize, QTimer, Qt, Signal, QThread, QVariantAnimation, QEasingCurve, QTemporaryFile, QRectF, QPropertyAnimation, QPoint, QParallelAnimationGroup
-        from PySide6.QtGui import QAction, QCloseEvent, QIcon, QImage, QPainter, QPixmap, QColor, QPen, QShortcut, QKeySequence
+        from PySide6.QtGui import QAction, QCloseEvent, QIcon, QImage, QPainter, QPixmap, QColor, QPen, QShortcut, QKeySequence, QPalette, QTextOption
         from PySide6.QtSvg import QSvgRenderer
         from PySide6.QtWidgets import (
             QApplication,
@@ -121,6 +124,17 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     except ImportError:
         VOICE_AI_AVAILABLE = False
 
+    voice_model_cache: dict[tuple[str, str], object] = {}
+
+    def get_cached_whisper_model(*, language: str, device: str):
+        cache_key = (language, device)
+        model = voice_model_cache.get(cache_key)
+        if model is None:
+            compute_type = "int8" if device == "cpu" else "float16"
+            model = WhisperModel("base", device=device, compute_type=compute_type)
+            voice_model_cache[cache_key] = model
+        return model
+
     try:
         import cv2
     except ImportError:
@@ -132,7 +146,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "search": "Search chats",
             "history": "Chat history",
             "settings": "Settings",
-            "greeting_title": "Hello! 👋",
+            "greeting_title": "Hello!",
             "greeting_text": "How can I help today?",
             "input_placeholder": "Type your message...",
             "camera": "Open camera",
@@ -154,7 +168,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "txt_title": "File preview",
             "ai_reply_text": "I received the content and will process it in this chat context.",
             "ai_reply_image": "Image received. I will use it as input for this chat.",
-            "image_model_error": "⚠️ This model does not support image input. Please switch to a vision-capable model (gemini-1.5-pro) in Settings or remove the attachment.",
+            "image_model_error": "AI chat is unavailable in this build.",
+            "ai_unavailable": "AI chat has been removed from this build.",
             "ai_reply_camera": "Camera snapshot received and added to the chat.",
             "empty_send": "Enter a message before sending.",
             "info_title": "Info",
@@ -175,21 +190,15 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "delete_chat": "Delete chat",
             "confirm_delete_title": "Confirm Delete",
             "confirm_delete_msg": "Are you sure you want to delete this conversation?",
-            "api_key_label": "Gemini API Key",
-            "api_key_hint": "Enter your Google AI Studio key...",
-            "api_key_desc": "Mã này dùng để kết nối với trí tuệ nhân tạo Gemini.",
         },
         "vi": {
-            "api_key_label": "Mã API Gemini",
-            "api_key_hint": "Nhập mã từ Google AI Studio...",
-            "api_key_desc": "Mã này dùng để kết nối với trí tuệ nhân tạo Gemini.",
             "copied_hint": "Đã sao chép vào bộ nhớ tạm!",
             "new_message": "Tin nhắn mới từ AI",
             "new_chat": "Chat mới",
             "search": "Tìm kiếm đoạn chat",
             "history": "Lịch sử chat",
             "settings": "Cài đặt",
-            "greeting_title": "Chào bạn! 👋",
+            "greeting_title": "Chào bạn!",
             "greeting_text": "Hôm nay bạn cần tôi hỗ trợ gì?",
             "input_placeholder": "Nhập tin nhắn...",
             "camera": "Mở camera",
@@ -211,13 +220,14 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "txt_title": "Xem trước tệp",
             "ai_reply_text": "Tôi đã nhận nội dung và sẽ xử lý trong ngữ cảnh đoạn chat này.",
             "ai_reply_image": "Đã nhận ảnh. Tôi sẽ dùng ảnh làm dữ liệu đầu vào cho đoạn chat này.",
-            "image_model_error": "⚠️ Mô hình này không hỗ trợ đầu vào hình ảnh. Vui lòng đổi sang mô hình hỗ trợ thị giác (gemini-1.5-pro) trong Cài đặt hoặc xóa ảnh đính kèm.",
+            "image_model_error": "Tính năng chat AI không có trong bản dựng này.",
+            "ai_unavailable": "Tính năng chat AI đã được gỡ khỏi bản dựng này.",
             "ai_reply_camera": "Đã nhận ảnh chụp từ camera và thêm vào đoạn chat.",
             "empty_send": "Hãy nhập tin nhắn trước khi gửi.",
             "info_title": "Thông tin",
             "loading_model": "Đang nạp AI giọng nói...",
             "recording_status": "Đang lắng nghe...",
-            "voice_error": "Không nhận diện được giọng nói hoặc lỗi Mic.",
+            "voice_error": "Không nhận diện được giọng nói hoặc lỗi mic.",
             "settings_title": "Cài đặt",
             "camera_window": "Camera",
             "attach_image_label": "Ảnh đã chọn",
@@ -232,7 +242,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             "delete_chat": "Xóa đoạn chat",
             "confirm_delete_title": "Xác nhận xóa",
             "confirm_delete_msg": "Bạn có chắc chắn muốn xóa đoạn chat này không?",
-        }
+        },
     }
 
     DARK_STYLESHEET = """
@@ -321,7 +331,34 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             stop:0 rgba(27, 28, 34, 0.98),
             stop:1 rgba(20, 21, 26, 0.98));
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 36px;
+        border-radius: 30px;
+    }
+    QFrame#ComposerInputRow,
+    QWidget#ComposerPreviewHost {
+        background: transparent;
+        border: none;
+    }
+    QScrollArea#ComposerPreviewScroll {
+        background: transparent;
+        border: none;
+    }
+    QFrame#ComposerPreviewThumb {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+    }
+    QPushButton#ComposerPreviewDeleteButton {
+        background: rgba(239, 68, 68, 0.92);
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 0;
+        text-align: center;
+    }
+    QPushButton#ComposerPreviewDeleteButton:hover {
+        background: rgba(220, 38, 38, 0.98);
     }
     QFrame#HistoryPanel {
         background: rgba(255, 255, 255, 0.02);
@@ -344,8 +381,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border-radius: 28px;
     }
     QFrame#SettingsNav {
-        background: transparent;
-        border: none;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 22px;
     }
     QFrame#SettingsContent {
@@ -387,7 +424,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         max-height: 32px;
         border-radius: 16px; /* Bo tròn */
         border: none;
-        background: #4db8ff; /* Màu xanh Gemini */
+        background: #4db8ff; /* Accent blue */
         color: white;
         font-weight: 700;
         qproperty-alignment: AlignCenter;
@@ -413,9 +450,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border-radius: 0;
         color: #ececf1;
         font-size: 15px;
-        padding: 7px 2px 7px 2px;
-        min-height: 30px;
-        max-height: 120px;
+        padding: 10px 2px 10px 2px;
+        min-height: 28px;
+        max-height: 72px;
     }
     QPlainTextEdit#ComposerInput,
     QPlainTextEdit#ComposerInput QWidget { /* Đảm bảo viewport trong suốt */
@@ -423,7 +460,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border: none;
     }
     QPlainTextEdit {
-        padding-top: 12px; /* Điều chỉnh padding */
+        padding-top: 0px;
     }
     QPushButton#ModeButton {
         background: #3a3d45;
@@ -534,7 +571,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         max-width: 44px;
         min-height: 44px;
         max-height: 44px;
-        border-radius: 22px;
+        border-radius: 20px;
         border: none;
         background: transparent;
         color: #e3e3e3;
@@ -550,9 +587,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         max-width: 44px;
         min-height: 44px;
         max-height: 44px;
-        border-radius: 22px;
+        border-radius: 20px;
         border: none;
-        background: #4db8ff; /* Màu xanh Gemini */
+        background: #4db8ff; /* Accent blue */
         color: #ffffff;
         font-size: 18px;
         font-weight: 700;
@@ -561,12 +598,13 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         background: #86cbff; /* Hover sáng hơn */
     }
     QPushButton#SettingsNavButton {
-        background: #242424;
-        border: 1px solid #3a3a3a;
-        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 16px;
         text-align: left;
         padding: 14px 18px;
         font-weight: 600;
+        color: #f3f4f6;
     }
     QPushButton#SettingsCloseButton {
         background: transparent;
@@ -585,8 +623,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         padding: 10px 14px;
         font-size: 15px;
         font-weight: 600;
-        color: #000000;
-        background: #ffffff;
+        color: #f3f4f6;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
     }
     QComboBox#SettingsCombo::drop-down {
         border: none;
@@ -596,11 +636,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         image: none;
     }
     QComboBox#SettingsCombo QAbstractItemView {
-        background: #ffffff;
-        color: #000000;
-        selection-background-color: #dbeafe;
-        selection-color: #000000;
-        border: 1px solid #d9d9df;
+        background: #1c1d22;
+        color: #f3f4f6;
+        selection-background-color: rgba(77, 184, 255, 0.2);
+        selection-color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         outline: none;
     }
     QMenu {
@@ -701,7 +741,34 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     QFrame#Composer {
         background: rgba(255, 255, 255, 0.95);
         border: 1px solid rgba(17, 24, 39, 0.08);
-        border-radius: 34px;
+        border-radius: 30px;
+    }
+    QFrame#ComposerInputRow,
+    QWidget#ComposerPreviewHost {
+        background: transparent;
+        border: none;
+    }
+    QScrollArea#ComposerPreviewScroll {
+        background: transparent;
+        border: none;
+    }
+    QFrame#ComposerPreviewThumb {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        border-radius: 18px;
+    }
+    QPushButton#ComposerPreviewDeleteButton {
+        background: rgba(239, 68, 68, 0.92);
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 0;
+        text-align: center;
+    }
+    QPushButton#ComposerPreviewDeleteButton:hover {
+        background: rgba(220, 38, 38, 0.98);
     }
     QFrame#HistoryPanel {
         background: rgba(255, 255, 255, 0.65);
@@ -724,8 +791,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border-radius: 28px;
     }
     QFrame#SettingsNav {
-        background: transparent;
-        border: none;
+        background: rgba(17, 24, 39, 0.03);
+        border: 1px solid rgba(17, 24, 39, 0.06);
         border-radius: 22px;
     }
     QFrame#SettingsContent {
@@ -793,9 +860,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border-radius: 0;
         color: #111827;
         font-size: 15px;
-        padding: 7px 2px 7px 2px;
-        min-height: 30px;
-        max-height: 120px;
+        padding: 10px 2px 10px 2px;
+        min-height: 28px;
+        max-height: 72px;
     }
     QPlainTextEdit#ComposerInput,
     QPlainTextEdit#ComposerInput QWidget { /* Đảm bảo viewport trong suốt */
@@ -803,7 +870,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border: none;
     }
     QPlainTextEdit {
-        padding-top: 12px; /* Điều chỉnh padding */
+        padding-top: 0px;
     }
     QPushButton#ModeButton {
         background: #e4e7ed;
@@ -914,7 +981,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         max-width: 44px;
         min-height: 44px;
         max-height: 44px;
-        border-radius: 22px;
+        border-radius: 20px;
         border: none;
         background: transparent;
         color: #111827;
@@ -930,7 +997,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         max-width: 44px;
         min-height: 44px;
         max-height: 44px;
-        border-radius: 22px;
+        border-radius: 20px;
         border: none;
         background: #4db8ff;
         color: #ffffff;
@@ -941,9 +1008,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         background: #86cbff;
     }
     QPushButton#SettingsNavButton {
-        background: #ffffff;
-        border: 1px solid #d9d9df;
-        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        border-radius: 16px;
         text-align: left;
         padding: 14px 18px;
         font-weight: 600;
@@ -1096,7 +1163,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 self.status_label.setText(tr(self.language, "camera_unavailable"))
                 return
             self.latest_frame = frame
-            # FPS calculation
             self.frame_count += 1
             now = time.monotonic()
             if self.last_fps_time == 0.0:
@@ -1106,7 +1172,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 self.fps = self.frame_count / elapsed
                 self.frame_count = 0
                 self.last_fps_time = now
-            # Draw FPS overlay
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             fps_text = f"FPS: {self.fps:.0f}"
             cv2.rectangle(rgb, (8, 8), (110, 36), (0, 0, 0), -1)
@@ -1138,7 +1203,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             super().closeEvent(event)
 
     class TypingIndicator(QWidget):
-        """Hiệu ứng 3 dấu chấm nhảy động kiểu Gemini."""
         def __init__(self, color: QColor, parent: QWidget | None = None) -> None:
             super().__init__(parent)
             self.setFixedSize(60, 24)
@@ -1154,7 +1218,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             painter.setPen(Qt.NoPen)
             t = time.time() - self.start_time
             for i in range(3):
-                # Hiệu ứng nhảy và mờ dần bằng hàm lượng giác
                 offset = math.sin(t * 7 - i * 0.9) * 4
                 alpha = int(160 + 95 * math.sin(t * 7 - i * 0.9))
                 c = QColor(self.color)
@@ -1162,75 +1225,12 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 painter.setBrush(c)
                 painter.drawEllipse(10 + i * 14, 12 + offset, 5, 5)
 
-    class AIWorker(QThread):
-        response_ready = Signal(str)
-        error_occurred = Signal(str)
-
-        def __init__(self, api_key: str, prompt: str, history: list[dict] = None, attachment_path: str = None, attachment_kind: str = None):
-            super().__init__()
-            self.api_key = api_key
-            self.prompt = prompt
-            self.history = history or []
-            self.attachment_path = attachment_path
-            self.attachment_kind = attachment_kind
-
-        def run(self):
-            if not genai or not self.api_key:
-                self.error_occurred.emit("API Key missing or library not installed.")
-                return
-            
-            try:
-                genai.configure(api_key=self.api_key)
-                # Sử dụng system_instruction để ép AI trả lời theo ngôn ngữ người dùng
-                model = genai.GenerativeModel(
-                    model_name="gemini-1.5-pro",
-                    system_instruction="You are a helpful assistant. Always respond using the same language as the user's input."
-                )
-                chat = model.start_chat(history=self.history)
-                
-                content_parts = [self.prompt]
-                
-                if self.attachment_path and self.attachment_kind in ["image", "camera"]:
-                    from PIL import Image
-                    content_parts.append(Image.open(self.attachment_path))
-                elif self.attachment_path and self.attachment_kind == "text":
-                    content = Path(self.attachment_path).read_text(encoding="utf-8", errors="ignore")
-                    content_parts.append(f"\n\n[File Content]:\n{content}")
-
-                response = chat.send_message(content_parts)
-                self.response_ready.emit(response.text)
-            except Exception as e:
-                self.error_occurred.emit(str(e))
-
-    class APIValidationWorker(QThread):
-        status_sig = Signal(bool, str)
-
-        def __init__(self, api_key: str):
-            super().__init__()
-            self.api_key = api_key
-
-        def run(self):
-            if not genai:
-                self.status_sig.emit(False, "Library google-generativeai not found")
-                return
-            try:
-                genai.configure(api_key=self.api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                model.generate_content("ping", generation_config={"max_output_tokens": 1})
-                self.status_sig.emit(True, "Active")
-            except Exception as e:
-                self.status_sig.emit(False, str(e))
-
     class SettingsDialog(QDialog):
         def __init__(self, *, parent_window: "ChatWindow") -> None:
             super().__init__(parent_window)
             self.window = parent_window
             self.setWindowTitle(tr(self.window.language, "settings_title"))
             self.setModal(True)
-            self.validation_timer = QTimer(self)
-            self.validation_timer.setSingleShot(True)
-            self.validation_timer.timeout.connect(self.validate_api_key)
-            self.validation_worker = None
             self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
             self.setAttribute(Qt.WA_TranslucentBackground, True)
             self.resize(1060, 700)
@@ -1277,6 +1277,15 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             sidebar_layout.addWidget(self.general_button)
             sidebar_layout.addStretch(1)
             body_row.addWidget(sidebar, 2)
+
+            divider = QFrame()
+            divider.setFrameShape(QFrame.VLine)
+            divider.setStyleSheet(
+                "background: transparent; border: none; border-left: 1px solid rgba(255, 255, 255, 0.08);"
+                if self.window.effective_theme == "dark"
+                else "background: transparent; border: none; border-left: 1px solid rgba(17, 24, 39, 0.08);"
+            )
+            body_row.addWidget(divider)
 
             content = QFrame()
             content.setObjectName("SettingsContent")
@@ -1339,49 +1348,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             language_card_layout.addWidget(self.language_combo, 0, Qt.AlignVCenter)
             content_layout.addWidget(self.language_card)
 
-            self.api_card = QFrame()
-            self.api_card.setObjectName("SettingsOptionCard")
-            api_layout = QVBoxLayout(self.api_card)
-            api_layout.setContentsMargins(22, 18, 22, 18)
-            api_layout.setSpacing(10)
-
-            self.api_label = QLabel()
-            self.api_label.setStyleSheet("font-size: 18px; font-weight: 700;")
-            api_layout.addWidget(self.api_label)
-
-            input_row = QHBoxLayout()
-            input_row.setSpacing(8)
-
-            self.api_input = QLineEdit()
-            self.api_input.setEchoMode(QLineEdit.Password)
-            self.api_input.textChanged.connect(self.on_api_key_changed)
-            input_row.addWidget(self.api_input, 1)
-
-            # Nút Hiện/Ẩn mật khẩu
-            self.toggle_api_view = QPushButton()
-            self.toggle_api_view.setFixedSize(36, 36)
-            self.toggle_api_view.setCursor(Qt.PointingHandCursor)
-            self.toggle_api_view.setStyleSheet("border-radius: 10px; padding: 0;")
-            self.toggle_api_view.clicked.connect(self.toggle_api_visibility)
-            input_row.addWidget(self.toggle_api_view)
-
-            # Nút Copy
-            self.copy_api_button = QPushButton()
-            self.copy_api_button.setFixedSize(36, 36)
-            self.copy_api_button.setCursor(Qt.PointingHandCursor)
-            self.copy_api_button.setStyleSheet("border-radius: 10px; padding: 0;")
-            self.copy_api_button.clicked.connect(self.copy_api_to_clipboard)
-            input_row.addWidget(self.copy_api_button)
-
-            api_layout.addLayout(input_row)
-
-            self.api_desc = QLabel()
-            self.api_desc.setObjectName("Subtle")
-            self.api_desc.setWordWrap(True)
-            api_layout.addWidget(self.api_desc)
-
-            content_layout.addWidget(self.api_card)
-
             content_layout.addStretch(1)
             body_row.addWidget(content, 5)
             shell_layout.addLayout(body_row)
@@ -1396,78 +1362,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.window.retranslate_ui()
             self.retranslate_dialog()
 
-        def on_api_key_changed(self, text: str):
-            self.window.db.set_setting("gemini_api_key", text)
-            # Reset border state when typing
-            self.api_input.setGraphicsEffect(None)
-            self.api_input.setProperty("state", "")
-            self.api_input.style().unpolish(self.api_input)
-            self.api_input.style().polish(self.api_input)
-
-            if not text.strip():
-                self.api_desc.setText(tr(self.window.language, "api_key_desc"))
-                self.api_desc.setStyleSheet("")
-                return
-            
-            self.api_desc.setText("⏳ Đang kiểm tra mã API..." if self.window.language == "vi" else "⏳ Checking API Key...")
-            self.api_desc.setStyleSheet("color: #AAB0BC;")
-            self.validation_timer.start(1200)
-
-        def validate_api_key(self):
-            key = self.api_input.text().strip()
-            if not key: return
-            if self.validation_worker and self.validation_worker.isRunning():
-                return
-            self.validation_worker = APIValidationWorker(key)
-            self.validation_worker.status_sig.connect(self.on_validation_finished)
-            self.validation_worker.start()
-
-        def on_validation_finished(self, success: bool, message: str):
-            if success:
-                msg = "✅ Mã API hoạt động tốt!" if self.window.language == "vi" else "✅ API Key is working!"
-                self.api_desc.setText(msg)
-                self.api_desc.setStyleSheet("color: #4CAF50; font-weight: bold;")
-                self.api_input.setProperty("state", "success")
-            else:
-                msg = "❌ Mã API không hoạt động!" if self.window.language == "vi" else "❌ API Key is not working!"
-                self.api_desc.setText(msg)
-                self.api_desc.setStyleSheet("color: #FF5252; font-weight: bold;")
-                self.api_input.setProperty("state", "error")
-                self.shake_widget(self.api_input)
-
-            # Refresh widget style to apply property changes
-            self.api_input.style().unpolish(self.api_input)
-            self.api_input.style().polish(self.api_input)
-
-        def shake_widget(self, widget: QWidget):
-            """Tạo hiệu ứng rung cho widget khi gặp lỗi."""
-            orig_pos = widget.pos()
-            shake = QPropertyAnimation(widget, b"pos", self)
-            shake.setDuration(400)
-            shake.setStartValue(orig_pos)
-            
-            # Tạo các điểm nút để di chuyển trái-phải
-            shake.setKeyValueAt(0.1, orig_pos + QPoint(-10, 0))
-            shake.setKeyValueAt(0.3, orig_pos + QPoint(10, 0))
-            shake.setKeyValueAt(0.5, orig_pos + QPoint(-10, 0))
-            shake.setKeyValueAt(0.7, orig_pos + QPoint(10, 0))
-            shake.setKeyValueAt(0.9, orig_pos + QPoint(-5, 0))
-            
-            shake.setEndValue(orig_pos)
-            shake.setEasingCurve(QEasingCurve.Linear)
-            shake.start(QPropertyAnimation.DeleteWhenStopped)
-
-        def toggle_api_visibility(self):
-            is_password = self.api_input.echoMode() == QLineEdit.Password
-            self.api_input.setEchoMode(QLineEdit.Normal if is_password else QLineEdit.Password)
-            icon_name = "eye_off.svg" if is_password else "eye.svg"
-            self.toggle_api_view.setIcon(themed_icon(icon_name, self.window.icon_color(), 18))
-
-        def copy_api_to_clipboard(self):
-            QApplication.clipboard().setText(self.api_input.text())
-            self.copy_api_button.setIcon(themed_icon("check.svg", "#4CAF50", 18))
-            QTimer.singleShot(1500, lambda: self.copy_api_button.setIcon(themed_icon("copy.svg", self.window.icon_color(), 18)))
-
         def retranslate_dialog(self) -> None:
             language = self.window.language
             self.setWindowTitle(tr(language, "settings_title"))
@@ -1479,13 +1373,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.appearance_desc.setText(tr(language, "appearance_desc"))
             self.language_label.setText(tr(language, "language"))
             self.language_desc.setText(tr(language, "language_desc"))
-            self.api_label.setText(tr(language, "api_key_label"))
-            self.api_input.setPlaceholderText(tr(language, "api_key_hint"))
-            self.api_input.setText(self.window.db.get_setting("gemini_api_key", ""))
-            self.api_desc.setText(tr(language, "api_key_desc"))
-            
-            self.toggle_api_view.setIcon(themed_icon("eye.svg", self.window.icon_color(), 18))
-            self.copy_api_button.setIcon(themed_icon("copy.svg", self.window.icon_color(), 18))
 
             theme_index = {"system": 0, "dark": 1, "light": 2}.get(self.window.theme_mode, 0)
             self.theme_combo.blockSignals(True)
@@ -1585,30 +1472,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         def set_setting(self, key: str, value: str):
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-            
-            # Nếu là API Key, đồng bộ thêm vào file .env để bảo mật
-            if key == "gemini_api_key":
-                self._update_env_file(value)
-
-        def _update_env_file(self, api_key: str):
-            env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-            lines = []
-            key_found = False
-            
-            if os.path.exists(env_path):
-                with open(env_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.startswith("GEMINI_API_KEY="):
-                            lines.append(f"GEMINI_API_KEY={api_key}\n")
-                            key_found = True
-                        else:
-                            lines.append(line)
-            
-            if not key_found:
-                lines.append(f"GEMINI_API_KEY={api_key}\n")
-            
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
 
         def get_all_conversations(self) -> list[Conversation]:
             convs = []
@@ -1651,6 +1514,16 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
 
+        def delete_conversations_by_titles(self, titles: set[str]) -> None:
+            if not titles:
+                return
+            placeholders = ",".join("?" for _ in titles)
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    f"DELETE FROM conversations WHERE title IN ({placeholders})",
+                    tuple(titles),
+                )
+
         def clear_all_conversations(self):
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("DELETE FROM conversations")
@@ -1688,7 +1561,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             spacing = 4
             bar_w = (w - (len(self.values) - 1) * spacing) / len(self.values)
             for i, val in enumerate(self.values):
-                # Tạo hiệu ứng sóng đối xứng từ giữa
                 bar_h = max(4, (val / 100.0) * h)
                 x = i * (bar_w + spacing)
                 y = (h - bar_h) / 2
@@ -1772,7 +1644,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                         wf.writeframes(b''.join(frames))
                         wf.close()
                         device = "cuda" if torch.cuda.is_available() else "cpu"
-                        model = WhisperModel("base", device=device, compute_type="int8" if device=="cpu" else "float16")
+                        model = get_cached_whisper_model(language=self.lang_code, device=device)
                         segments, _ = model.transcribe(tmp_path, language=self.lang_code)
                         text = "".join([s.text for s in segments])
                         self.result_ready.emit(text.strip())
@@ -1859,25 +1731,85 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         def __init__(self, parent: QWidget | None = None) -> None:
             super().__init__(parent)
             self.textChanged.connect(self._adjust_height)
+            self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            self.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+            self.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
+            self.setCenterOnScroll(False)
+            self.setCursorWidth(2)
+
+        def apply_visual_style(self, *, dark_mode: bool) -> None:
+            palette = self.palette()
+            if dark_mode:
+                palette.setColor(QPalette.Text, QColor("#F3F4F6"))
+                palette.setColor(QPalette.PlaceholderText, QColor("#9CA3AF"))
+                palette.setColor(QPalette.Base, QColor(0, 0, 0, 0))
+                palette.setColor(QPalette.Highlight, QColor("#4DB8FF"))
+                palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
+            else:
+                palette.setColor(QPalette.Text, QColor("#111827"))
+                palette.setColor(QPalette.PlaceholderText, QColor("#6B7280"))
+                palette.setColor(QPalette.Base, QColor(0, 0, 0, 0))
+                palette.setColor(QPalette.Highlight, QColor("#93C5FD"))
+                palette.setColor(QPalette.HighlightedText, QColor("#111827"))
+            self.setPalette(palette)
+            self.viewport().setPalette(palette)
 
         def _adjust_height(self):
             self.document().setTextWidth(self.viewport().width())
             height = self.document().size().height() + self.contentsMargins().top() + self.contentsMargins().bottom()
-            self.setFixedHeight(max(34, min(int(height), 96)))
+            self.setFixedHeight(max(28, min(int(height), 72)))
 
-        """Ô nhập liệu hỗ trợ Enter để gửi và Shift+Enter để xuống dòng."""
         enter_pressed = Signal()
 
         def keyPressEvent(self, event):
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):
                 if event.modifiers() & Qt.ShiftModifier:
-                    # Nếu nhấn Shift+Enter thì xuống dòng như bình thường
                     super().keyPressEvent(event)
                 else:
-                    # Nếu chỉ nhấn Enter thì gửi tin nhắn
                     self.enter_pressed.emit()
             else:
                 super().keyPressEvent(event)
+
+    class ComposerPreviewThumb(QFrame):
+        def __init__(self, *, path: str, attachment_kind: str, remove_callback, parent: QWidget | None = None) -> None:
+            super().__init__(parent)
+            self.setObjectName("ComposerPreviewThumb")
+            self.setFixedSize(88, 88)
+            self.remove_callback = remove_callback
+
+            thumb_layout = QVBoxLayout(self)
+            thumb_layout.setContentsMargins(0, 0, 0, 0)
+            thumb_layout.setSpacing(0)
+
+            self.thumb_label = QLabel()
+            self.thumb_label.setAlignment(Qt.AlignCenter)
+            self.thumb_label.setFixedSize(88, 88)
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                self.thumb_label.setPixmap(
+                    pixmap.scaled(88, 88, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                )
+            else:
+                self.thumb_label.setText("IMG" if attachment_kind == "image" else "CAM")
+                self.thumb_label.setStyleSheet("font-size: 12px; font-weight: 700;")
+            thumb_layout.addWidget(self.thumb_label)
+
+            self.delete_button = QPushButton("×", self)
+            self.delete_button.setObjectName("ComposerPreviewDeleteButton")
+            self.delete_button.setCursor(Qt.PointingHandCursor)
+            self.delete_button.setFixedSize(24, 24)
+            self.delete_button.move(self.width() - 28, 4)
+            self.delete_button.hide()
+            self.delete_button.clicked.connect(self.remove_callback)
+
+        def enterEvent(self, event) -> None:
+            self.delete_button.show()
+            super().enterEvent(event)
+
+        def leaveEvent(self, event) -> None:
+            self.delete_button.hide()
+            super().leaveEvent(event)
 
     class ChatBubble(QWidget):
         def __init__(self, message: ChatMessage, *, language: str, align_right: bool, parent: QWidget | None = None, window: QMainWindow = None) -> None:
@@ -1941,10 +1873,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
         def showEvent(self, event):
             super().showEvent(event)
-            # Hiệu ứng nhảy (bounce) khi tin nhắn mới xuất hiện
             self.anim = QPropertyAnimation(self.bubble, b"pos")
             self.anim.setDuration(500)
-            # Lấy vị trí hiện tại và tạo điểm bắt đầu thấp hơn 20px
             curr = self.bubble.pos()
             self.anim.setStartValue(QPoint(curr.x(), curr.y() + 20))
             self.anim.setEndValue(curr)
@@ -2027,13 +1957,12 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.initial_camera_index = initial_camera_index
             self.mode_label = mode_label
             self.model_label = model_label or ""
+            self.pending_image_attachments: list[tuple[str, str]] = []
             self.conversations: list[Conversation] = []
             db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output", "chat_history.db")
             self.db = ChatDatabase(db_path)
-            self.db.clear_all_messages()
-            self.db.clear_all_conversations()
+            self.db.delete_conversations_by_titles(LEGACY_SEEDED_CONVERSATION_TITLES)
 
-            # Tải cài đặt từ Database
             self.language = self.db.get_setting("language", "vi")
             self.theme_mode = self.db.get_setting("theme", "dark")
             
@@ -2044,14 +1973,16 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.resize(1480, 920)
             self.setAcceptDrops(True)
             self.build_ui()
-            self.conversations = [
-                Conversation(
-                    title=tr(self.language, "new_chat"),
-                    subtitle=tr(self.language, "today"),
-                    messages=[],
-                    id=None,
-                )
-            ]
+            self.conversations = self.db.get_all_conversations()
+            if not self.conversations:
+                self.conversations = [
+                    Conversation(
+                        title=tr(self.language, "new_chat"),
+                        subtitle=tr(self.language, "today"),
+                        messages=[],
+                        id=None,
+                    )
+                ]
             self.retranslate_ui()
 
         def setup_tray_icon(self) -> None:
@@ -2106,8 +2037,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                     self.handle_dropped_text(path)
 
         def handle_dropped_image(self, path: str):
-            self.add_message(ChatMessage(sender="user", text=tr(self.language, "attach_image_label"), attachment_path=path, attachment_kind="image"))
-            self.generate_ai_response("Analyze this image.", path, "image")
+            self.queue_image_attachment(path, "image")
 
         def handle_dropped_text(self, path: str):
             content = Path(path).read_text(encoding="utf-8", errors="ignore")[:500]
@@ -2180,7 +2110,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.search_compact_button.setIconSize(QSize(22, 22))
             self.search_compact_button.setToolTip(tr(self.language, "search"))
             self.search_compact_button.clicked.connect(self.focus_search)
-            sidebar_layout.addWidget(self.search_compact_button, 0, Qt.AlignHCenter)
+            sidebar_layout.addWidget(self.search_compact_button, 0, Qt.AlignLeft)
 
             self.history_title = QLabel()
             self.history_title.setObjectName("SectionTitle")
@@ -2217,7 +2147,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.chat_panel = QWidget()
             self.chat_panel.setObjectName("ChatPanel")
             chat_layout = QVBoxLayout(self.chat_panel)
-            chat_layout.setContentsMargins(22, 14, 22, 16)
+            chat_layout.setContentsMargins(12, 14, 12, 16)
             chat_layout.setSpacing(12)
 
             top_row = QHBoxLayout()
@@ -2268,41 +2198,65 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.composer = QFrame()
             self.composer.setObjectName("Composer")
-            composer_layout = QHBoxLayout(self.composer)
-            composer_layout.setContentsMargins(20, 16, 16, 16)
-            composer_layout.setSpacing(12)
-            self.composer.setMinimumHeight(80)
+            composer_layout = QVBoxLayout(self.composer)
+            composer_layout.setContentsMargins(10, 10, 10, 10)
+            composer_layout.setSpacing(8)
+            self.composer.setMinimumHeight(96)
+            self.composer.setMaximumHeight(220)
+
+            self.image_preview_area = QScrollArea()
+            self.image_preview_area.setObjectName("ComposerPreviewScroll")
+            self.image_preview_area.setWidgetResizable(True)
+            self.image_preview_area.setFrameShape(QFrame.NoFrame)
+            self.image_preview_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            self.image_preview_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            self.image_preview_area.setFixedHeight(92)
+            self.image_preview_area.hide()
+
+            self.image_preview_host = QWidget()
+            self.image_preview_host.setObjectName("ComposerPreviewHost")
+            self.image_preview_layout = QHBoxLayout(self.image_preview_host)
+            self.image_preview_layout.setContentsMargins(2, 2, 2, 2)
+            self.image_preview_layout.setSpacing(8)
+            self.image_preview_layout.addStretch(1)
+            self.image_preview_area.setWidget(self.image_preview_host)
+            composer_layout.addWidget(self.image_preview_area)
+
+            self.message_input_row = QFrame()
+            self.message_input_row.setObjectName("ComposerInputRow")
+            input_row_layout = QHBoxLayout(self.message_input_row)
+            input_row_layout.setContentsMargins(4, 0, 0, 0)
+            input_row_layout.setSpacing(8)
 
             self.plus_button = QPushButton("")
             self.plus_button.setFixedSize(44, 44)
             self.plus_button.clicked.connect(self.show_plus_menu)
-            composer_layout.addWidget(self.plus_button, 0, Qt.AlignVCenter)
+            input_row_layout.addWidget(self.plus_button, 0, Qt.AlignVCenter)
 
             self.message_input = MessageInput()
             self.message_input.setObjectName("ComposerInput")
-            self.message_input.setMinimumHeight(30)
+            self.message_input.setMinimumHeight(28)
             self.message_input.setMaximumHeight(72)
             self.message_input.setFrameShape(QFrame.NoFrame)
-            self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             self.message_input.viewport().setAutoFillBackground(False)
             self.message_input.viewport().setStyleSheet("background: transparent;")
             self.message_input.enter_pressed.connect(self.send_message)
-            composer_layout.addWidget(self.message_input, 1)
+            input_row_layout.addWidget(self.message_input, 1, Qt.AlignVCenter)
 
             self.micro_button = QPushButton("")
             self.micro_button.setObjectName("RoundButton")
             self.micro_button.setFixedSize(44, 44)
             self.micro_button.clicked.connect(self.start_voice_input)
-            composer_layout.addWidget(self.micro_button, 0, Qt.AlignVCenter)
+            input_row_layout.addWidget(self.micro_button, 0, Qt.AlignVCenter)
 
             self.send_button = QPushButton("↑")
             self.send_button.setObjectName("SendButton")
             self.send_button.setFixedSize(44, 44)
             self.send_button.clicked.connect(self.send_message)
-            composer_layout.addWidget(self.send_button, 0, Qt.AlignVCenter)
+            input_row_layout.addWidget(self.send_button, 0, Qt.AlignVCenter)
+            composer_layout.addWidget(self.message_input_row)
             chat_layout.addWidget(self.composer)
 
-            # Đăng ký phím tắt Ctrl+K để tìm kiếm
             self.search_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
             self.search_shortcut.activated.connect(self.focus_search)
 
@@ -2341,7 +2295,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             if target == "system":
                 target = self.detect_system_theme()
 
-            # Fade out before switching theme
             self.fade_anim = QPropertyAnimation(self, b"windowOpacity")
             self.fade_anim.setDuration(150)
             self.fade_anim.setStartValue(1.0)
@@ -2399,6 +2352,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.micro_button.setIconSize(QSize(18, 18))
             self.send_button.setText("\u2191")
             self.theme_button.setText("\u2600" if self.effective_theme == "dark" else "\u263E")
+            self.message_input.apply_visual_style(dark_mode=self.effective_theme == "dark")
 
         def retranslate_ui(self) -> None:
             self.new_chat_button.setText(tr(self.language, "new_chat"))
@@ -2487,32 +2441,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 self.new_chat_button.setIconSize(QSize(22, 22))
                 self.settings_button.setIconSize(QSize(22, 22))
 
-        def seed_default_conversations(self) -> None:
-            self.conversations = []
-            day = tr(self.language, "days_ago")
-            defaults = [
-                ("Design chat AI interface", tr(self.language, "today"), [ChatMessage(sender="ai", text=tr(self.language, "greeting_text"))]),
-                ("Configure YOLO11 imgsz", tr(self.language, "yesterday"), []),
-                ("Choose YOLO11 version", f"2 {day}", []),
-                ("YOLO config error", f"2 {day}", []),
-                ("YOLO11 FPS RTX 3050 Ti", f"3 {day}", []),
-                ("YOLO11 version and selection", f"3 {day}", []),
-                ("Interface design request", f"4 {day}", []),
-                ("AI health analysis", f"4 {day}", []),
-            ]
-            for title, subtitle, msgs in defaults:
-                c_id = self.db.create_conversation(title, subtitle)
-                conv = Conversation(title=title, subtitle=subtitle, messages=[], id=c_id)
-                for m in msgs:
-                    m.id = self.db.add_message(c_id, m)
-                    conv.messages.append(m)
-                self.conversations.append(conv)
-
-            self.active_conversation_index = 0
-            self.refresh_history()
-            self.history_list.setCurrentRow(0)
-            self.render_messages()
-
         def active_conversation(self) -> Conversation:
             if not self.conversations:
                 self.conversations.append(
@@ -2529,7 +2457,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         def refresh_history(self) -> None:
             query = self.search_input.text().strip().lower() if hasattr(self, "search_input") else ""
             
-            # Tìm các ID cuộc hội thoại có tin nhắn chứa từ khóa thông qua SQL
             matching_conv_ids = set()
             if query:
                 matching_conv_ids = set(self.db.search_conversations_by_message(query))
@@ -2542,7 +2469,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             for index, conversation in enumerate(self.conversations):
                 if conversation.id is None:
                     continue
-                # Hiển thị nếu tiêu đề khớp HOẶC nội dung tin nhắn khớp (dựa trên ID tìm được từ SQL)
                 matches_title = query in conversation.title.lower()
                 matches_message = conversation.id in matching_conv_ids
                 
@@ -2601,9 +2527,17 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.conversations.pop(index_to_delete)
             if not self.conversations:
-                self.seed_default_conversations() # Nếu xóa hết, tạo lại các đoạn chat mặc định
+                self.conversations.append(
+                    Conversation(
+                        title=tr(self.language, "new_chat"),
+                        subtitle=tr(self.language, "today"),
+                        messages=[],
+                        id=None,
+                    )
+                )
+                self.active_conversation_index = 0
             elif self.active_conversation_index >= index_to_delete:
-                self.active_conversation_index = max(0, self.active_conversation_index - 1) # Điều chỉnh chỉ mục nếu đoạn chat hiện tại bị xóa hoặc đoạn chat trước đó bị xóa
+                self.active_conversation_index = max(0, self.active_conversation_index - 1)
             
             self.refresh_history()
             self.render_messages()
@@ -2681,40 +2615,86 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.refresh_history()
             self.render_messages()
 
+        def queue_image_attachment(self, path: str, attachment_kind: str = "image") -> None:
+            self.pending_image_attachments.append((path, attachment_kind))
+            self.refresh_image_previews()
+            self.message_input.setFocus()
+
+        def refresh_image_previews(self) -> None:
+            while self.image_preview_layout.count() > 1:
+                item = self.image_preview_layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+
+            has_attachments = bool(self.pending_image_attachments)
+            self.image_preview_area.setVisible(has_attachments)
+            self.composer.setMinimumHeight(176 if has_attachments else 96)
+
+            if not has_attachments:
+                return
+
+            for index, (path, attachment_kind) in enumerate(self.pending_image_attachments):
+                thumb_widget = ComposerPreviewThumb(
+                    path=path,
+                    attachment_kind=attachment_kind,
+                    remove_callback=lambda _checked=False, idx=index: self.remove_pending_image_attachment(idx),
+                )
+                self.image_preview_layout.insertWidget(self.image_preview_layout.count() - 1, thumb_widget)
+
+        def remove_pending_image_attachment(self, index: int) -> None:
+            if not (0 <= index < len(self.pending_image_attachments)):
+                return
+            self.pending_image_attachments.pop(index)
+            self.refresh_image_previews()
+            self.message_input.setFocus()
+
+        def clear_pending_image_previews(self) -> None:
+            self.pending_image_attachments.clear()
+            self.refresh_image_previews()
+
+        def pending_attachment_prompt(self) -> str:
+            if not self.pending_image_attachments:
+                return ""
+            if len(self.pending_image_attachments) == 1:
+                _, attachment_kind = self.pending_image_attachments[0]
+                return tr(self.language, "attach_camera_label") if attachment_kind == "camera" else tr(self.language, "attach_image_label")
+            return f"{len(self.pending_image_attachments)} attachments"
+
         def send_message(self) -> None:
             text = self.message_input.toPlainText().strip()
-            if not text:
+            if not text and not self.pending_image_attachments:
                 QMessageBox.information(self, tr(self.language, "info_title"), tr(self.language, "empty_send"))
                 return
-            self.add_message(ChatMessage(sender="user", text=text))
+
+            for index, (path, attachment_kind) in enumerate(self.pending_image_attachments):
+                attachment_text = text if index == 0 and text else (
+                    tr(self.language, "attach_camera_label") if attachment_kind == "camera" else tr(self.language, "attach_image_label")
+                )
+                self.add_message(
+                    ChatMessage(
+                        sender="user",
+                        text=attachment_text,
+                        attachment_path=path,
+                        attachment_kind=attachment_kind,
+                    )
+                )
+
+            if text and not self.pending_image_attachments:
+                self.add_message(ChatMessage(sender="user", text=text))
+
             self.message_input.clear()
-            self.generate_ai_response(text)
+            prompt = text or self.pending_attachment_prompt()
+            first_attachment = self.pending_image_attachments[0] if self.pending_image_attachments else None
+            self.clear_pending_image_previews()
+            self.generate_ai_response(
+                prompt,
+                first_attachment[0] if first_attachment else None,
+                first_attachment[1] if first_attachment else None,
+            )
 
         def generate_ai_response(self, prompt: str, attach_path: str = None, attach_kind: str = None):
-            api_key = self.db.get_setting("gemini_api_key", "")
-            if not api_key:
-                self.add_message(ChatMessage(sender="ai", text="Please set your Gemini API Key in Settings first!"))
-                return
-
-            # Create a 'thinking' bubble
-            ai_msg = ChatMessage(sender="ai", text="[TYPING]")
-            self.add_message(ai_msg)
-
-            # Chuẩn bị lịch sử hội thoại (loại bỏ tin nhắn hiện tại và bong bóng đang chờ)
-            history = []
-            conv = self.active_conversation()
-            # Chỉ lấy các tin nhắn có nội dung thực tế để tránh lỗi API
-            for m in conv.messages[:-2]: 
-                if m.text and m.text != "...":
-                    role = "user" if m.sender == "user" else "model"
-                    history.append({"role": role, "parts": [m.text]})
-            
-            self.ai_worker = AIWorker(api_key, prompt, history, attach_path, attach_kind) # Sửa lỗi trùng lặp
-            # Đảm bảo thread không bị hủy giữa chừng
-            self.ai_worker.finished.connect(self.ai_worker.deleteLater)
-            self.ai_worker.response_ready.connect(lambda text: self.start_typewriter(text))
-            self.ai_worker.error_occurred.connect(lambda err: self.update_last_message(self._format_error(err)))
-            self.ai_worker.start()
+            self.add_message(ChatMessage(sender="ai", text=tr(self.language, "ai_unavailable")))
             self.scroll_to_bottom()
 
         def start_typewriter(self, full_text: str):
@@ -2734,10 +2714,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                 self.update_last_message(self.current_ai_text)
                 self.typewriter_idx += 1
                 
-                # Tốc độ gõ biến thiên: gõ nhanh chậm ngẫu nhiên
                 delay = random.randint(10, 45)
                 
-                # Nghỉ lâu hơn ở các dấu câu để tạo cảm giác tự nhiên
                 if char in ".?!":
                     delay += 400
                 elif char in ",;:":
@@ -2763,7 +2741,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                                 self.shake_bubble(last_bubble)
 
         def shake_bubble(self, bubble: ChatBubble):
-            """Rung bubble khi có lỗi API."""
             orig_pos = bubble.pos()
             shake = QPropertyAnimation(bubble, b"pos", self)
             shake.setDuration(300)
@@ -2802,7 +2779,9 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
         def on_voice_success(self, text: str):
             if text:
-                self.message_input.setPlainText(text)
+                existing_text = self.message_input.toPlainText().strip()
+                combined_text = f"{existing_text} {text}".strip() if existing_text else text
+                self.message_input.setPlainText(combined_text)
 
         def on_voice_error(self):
             QMessageBox.warning(self, tr(self.language, "info_title"), tr(self.language, "voice_error"))
@@ -2840,15 +2819,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             )
             if not path:
                 return
-            self.add_message(
-                ChatMessage(
-                    sender="user",
-                    text=tr(self.language, "attach_image_label"),
-                    attachment_path=path,
-                    attachment_kind="image",
-                )
-            )
-            self.generate_ai_response("Analyze this image.", path, "image")
+            self.queue_image_attachment(path, "image")
 
         def pick_text_file(self) -> None:
             path, _ = QFileDialog.getOpenFileName(
@@ -2881,15 +2852,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             dialog.exec()
 
         def handle_camera_capture(self, path: str) -> None:
-            self.add_message(
-                ChatMessage(
-                    sender="user",
-                    text=tr(self.language, "attach_camera_label"),
-                    attachment_path=path,
-                    attachment_kind="camera",
-                )
-            )
-            self.add_message(ChatMessage(sender="ai", text=self.build_ai_reply(text=path, source="camera")))
+            self.queue_image_attachment(path, "camera")
 
         def open_settings(self) -> None:
             SettingsDialog(parent_window=self).exec()

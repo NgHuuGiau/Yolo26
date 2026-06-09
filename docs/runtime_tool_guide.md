@@ -31,7 +31,7 @@ Tool trong thư mục `tools/` dùng để xem cấu hình máy hiện tại và
 
 ## Chat AI
 
-Sau khi có API key Gemini, chạy chat AI:
+Sau khi cài đặt các phụ thuộc Chat AI, chạy chat AI:
 
 ```powershell
 .\.venv\Scripts\python -c "from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app; import sys; args = build_chat_arg_parser('Chat AI').parse_args([]); launch_chat_ai_app(window_title='YOLO Chat AI', camera_index=0)"

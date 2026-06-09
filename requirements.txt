@@ -16,6 +16,5 @@ sounddevice
 speechrecognition
 PySide6
 pygments
-google-generativeai
 faster-whisper
 pyaudio

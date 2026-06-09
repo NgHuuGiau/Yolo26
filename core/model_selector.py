@@ -95,11 +95,6 @@ def build_candidates(model_name: str, settings: dict) -> list[str]:
     return list(dict.fromkeys([model_name, *(item for item in [backup_model, *fallbacks] if item)]))
 
 
-def _profile_tuple(profile_name: str, settings: dict) -> tuple[str, str, int]:
-    profile = settings["models"][profile_name]
-    return profile["device"], profile["model"], int(profile["imgsz"])
-
-
 def _gpu_power_tier(hardware: HardwareInfo) -> str:
     name = hardware.gpu_name.lower()
     vram = float(hardware.vram_gb)
@@ -122,7 +117,6 @@ def _gpu_power_tier(hardware: HardwareInfo) -> str:
 
 def _gpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int, int]:
     tier = _gpu_power_tier(hardware)
-    # Return (model_name, imgsz, max_det)
     if profile_name == "high":
         if tier == "high":
             return "yolo11x.pt", 960, 200
@@ -137,7 +131,6 @@ def _gpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, 
 
 
 def _cpu_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, int, int]:
-    # Return (model_name, imgsz, max_det) for CPU-only machines
     if profile_name == "high":
         if hardware.ram_gb >= 16:
             return "yolo11s.pt", 640, 150
@@ -175,8 +168,7 @@ def _hardware_tier(hardware: HardwareInfo) -> str:
     return "weak CPU"
 
 
-def _resolved_profile_tuple(profile_name: str, hardware: HardwareInfo, settings: dict) -> tuple[str, str, int, int]:
-    # returns (device, model_name, imgsz, max_det)
+def _resolved_profile_tuple(profile_name: str, hardware: HardwareInfo) -> tuple[str, str, int, int]:
     if hardware.cuda_available and not _gpu_profile_too_small(profile_name, hardware):
         model_name, imgsz, max_det = _gpu_profile_tuple(profile_name, hardware)
         return "gpu", model_name, imgsz, max_det
@@ -239,7 +231,7 @@ def _requested_profile_name(mode: str) -> str:
 
 def _mode_profile(mode: str, hardware: HardwareInfo, settings: dict) -> tuple[str, str, int, int, str]:
     profile_name = _coerce_profile_name(mode, hardware, settings)
-    requested_device, model_name, imgsz, max_det = _resolved_profile_tuple(profile_name, hardware, settings)
+    requested_device, model_name, imgsz, max_det = _resolved_profile_tuple(profile_name, hardware)
     if requested_device == "auto":
         requested_device = "gpu" if hardware.cuda_available else "cpu"
     return requested_device, model_name, imgsz, max_det, profile_name

@@ -45,7 +45,7 @@ class RunMenuTests(unittest.TestCase):
         result = run_menu.main(input_fn=lambda _: next(answers), print_fn=outputs.append, run_script_fn=run_script, clear_terminal_fn=clear_terminal)
         self.assertEqual(result, 0)
         run_script.assert_called_once_with("run_tools.py")
-        self.assertTrue(any("ket thuc voi ma" in line or "kết thúc với mã" in line for line in outputs))
+        self.assertTrue(any("kết thúc với mã" in line or "ket thuc voi ma" in line for line in outputs))
         clear_terminal.assert_called_once()
 
 

@@ -56,11 +56,16 @@ def resolve_start_bundle(
 
     selected_model = requested_model or runtime.primary_model_name
     runtime = _apply_selected_model(runtime, selected_model)
-    launch_target = requested_target or prompt_launch_target(
-        selected_mode=selected_mode,
-        selected_model=selected_model,
-        preferred_target=preferred_target,
-    )
+    if requested_target is not None:
+        launch_target = requested_target
+    elif preferred_target in {"ui", "camera"}:
+        launch_target = preferred_target
+    else:
+        launch_target = prompt_launch_target(
+            selected_mode=selected_mode,
+            selected_model=selected_model,
+            preferred_target=preferred_target,
+        )
     return StartOptions(
         selected_mode=selected_mode,
         selected_model=selected_model,

@@ -15,7 +15,6 @@
 - menu tổng để chạy nhanh các file chính
 - bộ test để kiểm tra toàn hệ thống
 - tự động fallback khi model hoặc cấu hình chính lỗi
-- chat AI với Gemini API (PySide6 GUI)
 - nhận dạng giọng nói (Whisper)
 
 ## Ngôn ngữ và thư viện đang dùng
@@ -47,7 +46,6 @@
 **Thư viện Chat AI**
 
 - `PySide6`
-- `google-generativeai`
 - `faster-whisper`
 - `pyaudio`
 
@@ -194,7 +192,7 @@ YOLO/
 
 - chứa luồng app camera cấp cao
 - `camera_app.py`: nối phần cứng, chọn mode, terminal UI và camera runtime
-- `chat_ai_app.py`: giao diện chat AI với Gemini API (PySide6)
+- `chat_ai_app.py`: giao diện chat AI (PySide6)
 
 `config/`
 
@@ -274,7 +272,7 @@ YOLO/
 - `run_menu.py` = menu tổng
 - `run_app.py` = chạy app camera chính (desktop)
 - `run_detect.py` = detect camera (CLI)
-- `run_chat.py` = chat AI với Gemini
+- `run_chat.py` = chat AI
 - `run_tools.py` = xem cấu hình máy và 3 mức tối ưu
 - `run_doctor.py` = kiểm tra hệ thống
 - `run_tests.py` = kiểm tra code
