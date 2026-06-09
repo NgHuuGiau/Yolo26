@@ -396,6 +396,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         color: #e3e3e3; /* Màu chữ */
         padding: 12px 14px;
     }
+    QLineEdit[state="error"] { border: 2px solid #FF5252; }
+    QLineEdit[state="success"] { border: 2px solid #4db8ff; }
+    QLineEdit[state="error"] { border: 1.5px solid #FF5252; }
+    QLineEdit[state="success"] { border: 1.5px solid #4CAF50; }
     QScrollArea#MessageScroll {
         border: none;
         background: transparent;
@@ -772,6 +776,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         color: #111827;
         padding: 12px 14px;
     }
+    QLineEdit[state="error"] { border: 2px solid #FF5252; }
+    QLineEdit[state="success"] { border: 2px solid #4db8ff; }
+    QLineEdit[state="error"] { border: 1.5px solid #FF5252; }
+    QLineEdit[state="success"] { border: 1.5px solid #4CAF50; }
     QScrollArea#MessageScroll {
         border: none;
         background: transparent;
@@ -1191,12 +1199,35 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             except Exception as e:
                 self.error_occurred.emit(str(e))
 
+    class APIValidationWorker(QThread):
+        status_sig = Signal(bool, str)
+
+        def __init__(self, api_key: str):
+            super().__init__()
+            self.api_key = api_key
+
+        def run(self):
+            if not genai:
+                self.status_sig.emit(False, "Library google-generativeai not found")
+                return
+            try:
+                genai.configure(api_key=self.api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                model.generate_content("ping", generation_config={"max_output_tokens": 1})
+                self.status_sig.emit(True, "Active")
+            except Exception as e:
+                self.status_sig.emit(False, str(e))
+
     class SettingsDialog(QDialog):
         def __init__(self, *, parent_window: "ChatWindow") -> None:
             super().__init__(parent_window)
             self.window = parent_window
             self.setWindowTitle(tr(self.window.language, "settings_title"))
             self.setModal(True)
+            self.validation_timer = QTimer(self)
+            self.validation_timer.setSingleShot(True)
+            self.validation_timer.timeout.connect(self.validate_api_key)
+            self.validation_worker = None
             self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
             self.setAttribute(Qt.WA_TranslucentBackground, True)
             self.resize(1060, 700)
@@ -1364,6 +1395,64 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
         def on_api_key_changed(self, text: str):
             self.window.db.set_setting("gemini_api_key", text)
+            # Reset border state when typing
+            self.api_input.setGraphicsEffect(None)
+            self.api_input.setProperty("state", "")
+            self.api_input.style().unpolish(self.api_input)
+            self.api_input.style().polish(self.api_input)
+
+            if not text.strip():
+                self.api_desc.setText(tr(self.window.language, "api_key_desc"))
+                self.api_desc.setStyleSheet("")
+                return
+            
+            self.api_desc.setText("⏳ Đang kiểm tra mã API..." if self.window.language == "vi" else "⏳ Checking API Key...")
+            self.api_desc.setStyleSheet("color: #AAB0BC;")
+            self.validation_timer.start(1200)
+
+        def validate_api_key(self):
+            key = self.api_input.text().strip()
+            if not key: return
+            if self.validation_worker and self.validation_worker.isRunning():
+                return
+            self.validation_worker = APIValidationWorker(key)
+            self.validation_worker.status_sig.connect(self.on_validation_finished)
+            self.validation_worker.start()
+
+        def on_validation_finished(self, success: bool, message: str):
+            if success:
+                msg = "✅ Mã API hoạt động tốt!" if self.window.language == "vi" else "✅ API Key is working!"
+                self.api_desc.setText(msg)
+                self.api_desc.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                self.api_input.setProperty("state", "success")
+            else:
+                msg = "❌ Mã API không hoạt động!" if self.window.language == "vi" else "❌ API Key is not working!"
+                self.api_desc.setText(msg)
+                self.api_desc.setStyleSheet("color: #FF5252; font-weight: bold;")
+                self.api_input.setProperty("state", "error")
+                self.shake_widget(self.api_input)
+
+            # Refresh widget style to apply property changes
+            self.api_input.style().unpolish(self.api_input)
+            self.api_input.style().polish(self.api_input)
+
+        def shake_widget(self, widget: QWidget):
+            """Tạo hiệu ứng rung cho widget khi gặp lỗi."""
+            orig_pos = widget.pos()
+            shake = QPropertyAnimation(widget, b"pos", self)
+            shake.setDuration(400)
+            shake.setStartValue(orig_pos)
+            
+            # Tạo các điểm nút để di chuyển trái-phải
+            shake.setKeyValueAt(0.1, orig_pos + QPoint(-10, 0))
+            shake.setKeyValueAt(0.3, orig_pos + QPoint(10, 0))
+            shake.setKeyValueAt(0.5, orig_pos + QPoint(-10, 0))
+            shake.setKeyValueAt(0.7, orig_pos + QPoint(10, 0))
+            shake.setKeyValueAt(0.9, orig_pos + QPoint(-5, 0))
+            
+            shake.setEndValue(orig_pos)
+            shake.setEasingCurve(QEasingCurve.Linear)
+            shake.start(QPropertyAnimation.DeleteWhenStopped)
 
         def toggle_api_visibility(self):
             is_password = self.api_input.echoMode() == QLineEdit.Password
@@ -1621,7 +1710,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.label.setStyleSheet("color: #FF5252; font-weight: 700; font-size: 14px;")
             layout.addWidget(self.label)
             self.hide()
-            self.setup_styles()
 
         def setup_styles(self) -> None:
             if self._window and getattr(self._window, "effective_theme", "dark") == "light":
@@ -1646,8 +1734,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             def run(self):
                 import tempfile
                 chunk = 1024
-                fs = 16000 # Chuẩn Whisper
+                fs = 16000
                 p = pyaudio.PyAudio()
+                stream = None
+                tmp_path = None
                 try:
                     stream = p.open(format=pyaudio.paInt16, channels=1, rate=fs,
                                     frames_per_buffer=chunk, input=True)
@@ -1656,50 +1746,49 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                     while self.is_running:
                         data = stream.read(chunk, exception_on_overflow=False)
                         frames.append(data)
-                        
                         audio_data = np.frombuffer(data, dtype=np.int16)
                         rms = np.sqrt(np.mean(audio_data**2)) if len(audio_data) > 0 else 0
-                        
-                        # Tinh chỉnh độ nhạy: khuếch đại giọng nhỏ bằng hàm lũy thừa
                         intensity = int(min(100, (rms ** 0.65) * 2.2))
                         self.intensity_changed.emit(intensity)
-
                         if rms < 80: silent_chunks += 1
                         else: silent_chunks = 0
-                        
                         if silent_chunks > int(fs / chunk * 1.8): break
                         if len(frames) > int(fs / chunk * 12): break
-
-                    stream.stop_stream()
-                    stream.close()
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                        wf = wave.open(tmp.name, 'wb')
+                    if stream and stream.is_active():
+                        stream.stop_stream()
+                    if stream:
+                        stream.close()
+                    if frames:
+                        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+                        tmp_path = tmp.name
+                        tmp.close()
+                        wf = wave.open(tmp_path, 'wb')
                         wf.setnchannels(1)
                         wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
                         wf.setframerate(fs)
                         wf.writeframes(b''.join(frames))
                         wf.close()
-
                         device = "cuda" if torch.cuda.is_available() else "cpu"
                         model = WhisperModel("base", device=device, compute_type="int8" if device=="cpu" else "float16")
-                        segments, _ = model.transcribe(tmp.name, language=self.lang_code)
+                        segments, _ = model.transcribe(tmp_path, language=self.lang_code)
                         text = "".join([s.text for s in segments])
-                        
                         self.result_ready.emit(text.strip())
-                        try: os.unlink(tmp.name)
-                        except: pass
+                    else:
+                        self.result_ready.emit("")
                 except Exception:
                     self.error.emit()
                 finally:
-                    p.terminate()
+                    try:
+                        p.terminate()
+                    except:
+                        pass
                     self.finished.emit()
+                    if tmp_path:
+                        try: os.unlink(tmp_path)
+                        except: pass
 
             def stop(self):
                 self.is_running = False
-
-    # XÓA CLASS IMAGEPREVIEWDIALOG TRÙNG LẶP (Dòng 1021-1048)
-    # CHỈ GIỮ LẠI BẢN CÓ HIỆU ỨNG BLUR Ở DÒI 1050
 
     class ImagePreviewDialog(QDialog):
         def __init__(self, image_path: str, parent: QWidget | None = None, effective_theme: str = "dark") -> None:
@@ -2558,19 +2647,16 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
         def show_plus_menu(self) -> None:
             menu = QMenu(self)
-            image_action = QAction(tr(self.language, "choose_image"), self)
             strong = self.icon_color()
-            
+
             image_action = QAction(themed_icon("image.svg", strong, 18), tr(self.language, "choose_image"), self)
             image_action.triggered.connect(self.pick_image)
             menu.addAction(image_action)
 
-            text_action = QAction(tr(self.language, "choose_text"), self)
             text_action = QAction(themed_icon("file_text.svg", strong, 18), tr(self.language, "choose_text"), self)
             text_action.triggered.connect(self.pick_text_file)
             menu.addAction(text_action)
 
-            camera_action = QAction(tr(self.language, "camera"), self)
             camera_action = QAction(themed_icon("camera.svg", strong, 18), tr(self.language, "camera"), self)
             camera_action.triggered.connect(self.open_camera)
             menu.addAction(camera_action)
@@ -2663,7 +2749,6 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             conv = self.active_conversation()
             if conv.messages:
                 conv.messages[-1].text = text
-                # count()-1 là Spacer, count()-2 là tin nhắn cuối cùng
                 idx = self.messages_layout.count() - 2
                 if idx >= 0:
                     item = self.messages_layout.itemAt(idx)
@@ -2671,6 +2756,24 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                         last_bubble = item.widget()
                         if isinstance(last_bubble, ChatBubble):
                             last_bubble.update_display_text(text)
+                            if text.startswith("Error:") or text.startswith("API Error:"):
+                                self.shake_bubble(last_bubble)
+
+        def shake_bubble(self, bubble: ChatBubble):
+            """Rung bubble khi có lỗi API."""
+            orig_pos = bubble.pos()
+            shake = QPropertyAnimation(bubble, b"pos", self)
+            shake.setDuration(300)
+            shake.setStartValue(orig_pos)
+            shake.setKeyValueAt(0.15, orig_pos + QPoint(-8, 0))
+            shake.setKeyValueAt(0.3, orig_pos + QPoint(8, 0))
+            shake.setKeyValueAt(0.45, orig_pos + QPoint(-6, 0))
+            shake.setKeyValueAt(0.6, orig_pos + QPoint(6, 0))
+            shake.setKeyValueAt(0.75, orig_pos + QPoint(-3, 0))
+            shake.setKeyValueAt(0.9, orig_pos + QPoint(3, 0))
+            shake.setEndValue(orig_pos)
+            shake.setEasingCurve(QEasingCurve.OutBounce)
+            shake.start(QPropertyAnimation.DeleteWhenStopped)
 
         def start_voice_input(self) -> None:
             if not VOICE_AI_AVAILABLE:
