@@ -174,7 +174,7 @@ def progress_bar_colored(score: int, width: int | None = None) -> str:
     parts: list[str] = []
     for index in range(width):
         if index >= filled:
-            parts.append(f"{DIM}\u00b7{RESET}")
+            parts.append(" ")
         else:
             color = YELLOW if index < width // 3 else ORANGE if index < (width * 2) // 3 else RED
             parts.append(f"{color}\u2588{RESET}")
@@ -192,7 +192,7 @@ def _usage_row(label: str, percent: float | None) -> str:
     )
 
 
-def dashboard_boot_bar(width: int = BOOT_BAR_WIDTH) -> str:
+def dashboard_boot_bar(_score: int, width: int = BOOT_BAR_WIDTH) -> str:
     return progress_bar_colored(100, width)
 
 
@@ -379,7 +379,7 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _row("Lựa chọn", values["chosen_label"], GREEN),
         _row("Mục tiêu", f"{values['requested_profile']} -> {values['cuda_target']}", MAGENTA),
         _row("Thực tế", f"{profile_label(values['runtime_profile'])} ({values['runtime_profile']})", values["profile_color"]),
-        _row("Thanh khởi động", dashboard_boot_bar(BOOT_BAR_WIDTH), GREEN, bounded=False),
+        _row("Mức sẵn sàng", dashboard_boot_bar(values["score"], BOOT_BAR_WIDTH), values["ready_text_color"], bounded=False),
         _line(_rule("-"), CYAN),
         _section("PHẦN CỨNG", values["hardware_section_color"]),
         _row("CPU", getattr(hardware, "cpu_name", "Không rõ CPU"), GREEN),
@@ -486,6 +486,7 @@ class BootProgress:
         self.enabled = sys.stdout.isatty() and os.getenv("YOLO_DISABLE_PROGRESS") != "1" if enabled is None else enabled
         self.title = title
         self.current = 0
+        self.current_label = "Đang chuẩn bị khởi động"
         self.started = False
 
     def start(self) -> None:
@@ -499,9 +500,13 @@ class BootProgress:
 
     def _render_line(self) -> None:
         self._clear_line()
-        print(_line(progress_bar_colored(self.current), _score_color(self.current)), end="", flush=True)
+        title = " ".join(str(self.title).split())
+        label = " ".join(str(self.current_label).split())
+        content = f"{title} | {label} | {progress_bar_colored(self.current)}"
+        print(_line(content, _score_color(self.current)), end="", flush=True)
 
     def advance_to(self, target: int, label: str) -> None:
+        self.current_label = label
         if not self.enabled:
             self.current = max(self.current, target)
             return

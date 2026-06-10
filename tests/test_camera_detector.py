@@ -14,6 +14,9 @@ from core.camera_runner import (
     CapturePreparationState,
     DetectionRecord,
     STABLE_FRAMES_REQUIRED,
+    _bbox_iou,
+    _dedupe_display_detections,
+    _filter_person_detections,
     _fps_tolerance_for_profile,
     _should_force_camera_only_preview,
     _target_fps_for_profile,
@@ -103,8 +106,8 @@ class CameraDetectorTests(unittest.TestCase):
         runtime = self._runtime()
         frame = np.zeros((240, 320, 3), dtype=np.uint8)
         result = SimpleNamespace(
-            names={0: "person"},
-            boxes=[_FakeBox(0, 0.91, [10, 20, 100, 150])],
+            names={1: "car"},
+            boxes=[_FakeBox(1, 0.91, [10, 20, 100, 150])],
         )
         fake_model = MagicMock()
         fake_model.predict.return_value = [result]
@@ -126,7 +129,7 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(processed_frame.shape, frame.shape)
         self.assertEqual(len(detections), 1)
         self.assertIsInstance(detections[0], DetectionRecord)
-        self.assertEqual(detections[0].label, "person")
+        self.assertEqual(detections[0].label, "car")
         self.assertGreater(detections[0].confidence, 0.9)
         self.assertGreater(fps, 0.0)
 
@@ -406,3 +409,294 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertTrue(_should_force_camera_only_preview("high"))
         self.assertTrue(_should_force_camera_only_preview("medium"))
         self.assertTrue(_should_force_camera_only_preview("low"))
+
+    def test_read_and_detect_suppresses_detections_on_high_motion(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.camera_stream = MagicMock()
+        moved_frame = np.full((80, 80, 3), 200, dtype=np.uint8)
+        detector.camera_stream.read_latest_frame.return_value = moved_frame
+        detector.camera_stream.last_error_message = ""
+        detector.camera_stream.last_status_message = ""
+        detector.camera_stream.consecutive_read_failures = 0
+        detector.loaded_model = LoadedModel(model=MagicMock(), model_name="yolo11s.pt", source_path="yolo11s.pt")
+        detector.runtime.resolved_device = "cpu"
+        stable_gray = np.zeros((40, 40), dtype=np.uint8)
+        detector.previous_gray = stable_gray
+        detector.last_raw_frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        detector.loaded_model.model.predict.return_value = [
+            SimpleNamespace(names={0: "person"}, boxes=[_FakeBox(0, 0.9, [10, 10, 50, 50])])
+        ]
+        detector.frame_index = 0
+
+        ok, processed_frame, detections, fps = detector.read_and_detect()
+
+        self.assertTrue(ok)
+        self.assertEqual(processed_frame.shape, moved_frame.shape)
+        self.assertEqual(len(detections), 1)
+        self.assertIn("Đang theo dõi vật thể chuyển động", detector.last_status_message)
+
+    def test_read_and_detect_shows_detections_on_stable_frame(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.camera_stream = MagicMock()
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        detector.camera_stream.read_latest_frame.return_value = frame
+        detector.camera_stream.last_error_message = ""
+        detector.camera_stream.last_status_message = ""
+        detector.camera_stream.consecutive_read_failures = 0
+        detector.loaded_model = LoadedModel(model=MagicMock(), model_name="yolo11s.pt", source_path="yolo11s.pt")
+        detector.runtime.resolved_device = "cpu"
+        detector.previous_gray = None
+        detector.last_raw_frame = frame.copy()
+        detector.loaded_model.model.predict.return_value = [
+            SimpleNamespace(names={1: "car"}, boxes=[_FakeBox(1, 0.9, [10, 10, 50, 50])])
+        ]
+        detector.frame_index = 0
+
+        ok, processed_frame, detections, fps = detector.read_and_detect()
+
+        self.assertTrue(ok)
+        self.assertEqual(len(detections), 1)
+        self.assertEqual(detections[0].label, "car")
+
+    def test_read_and_detect_hides_person_detections(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.camera_stream = MagicMock()
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        detector.camera_stream.read_latest_frame.return_value = frame
+        detector.camera_stream.last_error_message = ""
+        detector.camera_stream.last_status_message = ""
+        detector.camera_stream.consecutive_read_failures = 0
+        detector.loaded_model = LoadedModel(model=MagicMock(), model_name="yolo11s.pt", source_path="yolo11s.pt")
+        detector.runtime.resolved_device = "cpu"
+        detector.previous_gray = None
+        detector.last_raw_frame = frame.copy()
+        detector.loaded_model.model.predict.return_value = [
+            SimpleNamespace(names={0: "person"}, boxes=[_FakeBox(0, 0.9, [10, 10, 50, 50])])
+        ]
+        detector.frame_index = 0
+
+        ok, processed_frame, detections, fps = detector.read_and_detect()
+
+        self.assertTrue(ok)
+        self.assertEqual(processed_frame.shape, frame.shape)
+        self.assertEqual(len(detections), 1)
+        self.assertEqual(detections[0].label, "person")
+
+    def test_read_and_detect_does_not_keep_stale_boxes_when_current_frame_has_no_detection(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.camera_stream = MagicMock()
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+        detector.camera_stream.read_latest_frame.return_value = frame
+        detector.camera_stream.last_error_message = ""
+        detector.camera_stream.last_status_message = ""
+        detector.camera_stream.consecutive_read_failures = 0
+        detector.loaded_model = LoadedModel(model=MagicMock(), model_name="yolo11s.pt", source_path="yolo11s.pt")
+        detector.runtime.resolved_device = "cpu"
+        detector.previous_gray = None
+        detector.last_raw_frame = frame.copy()
+        detector.last_detections = [DetectionRecord(class_id=1, label="car", confidence=0.9, bbox=(10, 10, 50, 50))]
+        detector.loaded_model.model.predict.return_value = [SimpleNamespace(names={1: "car"}, boxes=[])]
+        detector.frame_index = 0
+
+        ok, processed_frame, detections, fps = detector.read_and_detect()
+
+        self.assertTrue(ok)
+        self.assertEqual(detections, [])
+        self.assertEqual(detector.last_detections, [])
+        self.assertEqual(detector.previous_display_detections, [])
+
+    def test_smooth_display_detections_tracks_same_person_without_keeping_fixed_box(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.91, bbox=(20, 20, 80, 120))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.91, bbox=(20, 20, 80, 120))
+        ]
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="person", confidence=0.95, bbox=(30, 30, 90, 130))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].label, "person")
+        self.assertEqual(result[0].bbox, (23, 23, 83, 123))
+        self.assertEqual(detector.previous_display_detections[0].bbox, (23, 23, 83, 123))
+        self.assertEqual(detector.previous_observed_detections[0].bbox, (30, 30, 90, 130))
+
+    def test_smooth_display_detections_clears_previous_boxes_when_current_frame_is_empty(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.91, bbox=(20, 20, 80, 120))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.91, bbox=(20, 20, 80, 120))
+        ]
+
+        result = detector._smooth_display_detections([])
+
+        self.assertEqual(result, [])
+        self.assertEqual(detector.previous_display_detections, [])
+        self.assertEqual(detector.previous_observed_detections, [])
+
+    def test_smooth_display_detections_matches_fast_motion_using_center_distance(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.88, bbox=(27, 27, 87, 127))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.91, bbox=(30, 30, 90, 130))
+        ]
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="person", confidence=0.94, bbox=(55, 55, 115, 155))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].bbox, (54, 54, 114, 154))
+
+    def test_smooth_display_detections_reduces_small_jitter_between_frames(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.90, bbox=(40, 40, 100, 160))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.90, bbox=(40, 40, 100, 160))
+        ]
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="person", confidence=0.92, bbox=(42, 41, 102, 161))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].bbox, (40, 40, 100, 160))
+
+    def test_effective_display_detections_keeps_multiple_people_when_not_overlapping(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.72, bbox=(10, 10, 50, 50)),
+            DetectionRecord(class_id=0, label="person", confidence=0.95, bbox=(80, 12, 130, 62)),
+            DetectionRecord(class_id=0, label="person", confidence=0.48, bbox=(140, 60, 180, 100)),
+        ]
+
+        result = detector._effective_display_detections(detections)
+
+        self.assertEqual(len(result), 2)
+        self.assertTrue(all(item.label == "person" for item in result))
+        self.assertEqual([round(item.confidence, 2) for item in result], [0.95, 0.72])
+
+    def test_effective_display_detections_removes_overlapping_people_duplicates(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.72, bbox=(10, 10, 50, 50)),
+            DetectionRecord(class_id=0, label="person", confidence=0.95, bbox=(12, 12, 52, 52)),
+            DetectionRecord(class_id=0, label="person", confidence=0.81, bbox=(100, 20, 150, 80)),
+        ]
+
+        result = detector._effective_display_detections(detections)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual([round(item.confidence, 2) for item in result], [0.95, 0.81])
+
+    def test_effective_display_detections_filters_low_confidence_noise(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detections = [
+            DetectionRecord(class_id=1, label="car", confidence=0.44, bbox=(10, 10, 50, 50)),
+            DetectionRecord(class_id=1, label="car", confidence=0.81, bbox=(12, 12, 52, 52)),
+        ]
+
+        result = detector._effective_display_detections(detections)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].label, "car")
+        self.assertAlmostEqual(result[0].confidence, 0.81)
+
+    def test_filter_person_detections_rejects_weak_person_confidence(self) -> None:
+        detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.59, bbox=(40, 20, 120, 170)),
+            DetectionRecord(class_id=0, label="person", confidence=0.78, bbox=(45, 25, 125, 175)),
+        ]
+
+        result = _filter_person_detections(detections, (200, 200, 3))
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0].confidence, 0.78)
+
+    def test_effective_inference_imgsz_uses_higher_medium_resolution_for_accuracy(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.runtime.profile_name = "medium"
+        detector.runtime.imgsz = 768
+
+        self.assertEqual(detector._effective_inference_imgsz(), 640)
+
+    def test_dedupe_display_detections_removes_overlapping_same_label_boxes(self) -> None:
+        detections = [
+            DetectionRecord(class_id=1, label="car", confidence=0.88, bbox=(10, 10, 60, 60)),
+            DetectionRecord(class_id=1, label="car", confidence=0.76, bbox=(12, 12, 58, 58)),
+            DetectionRecord(class_id=2, label="bottle", confidence=0.91, bbox=(100, 20, 130, 90)),
+        ]
+
+        result = _dedupe_display_detections(detections)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].label, "bottle")
+        self.assertEqual(result[1].label, "car")
+
+    def test_bbox_iou_returns_high_value_for_near_identical_boxes(self) -> None:
+        score = _bbox_iou((10, 10, 60, 60), (12, 12, 58, 58))
+        self.assertGreater(score, 0.8)
+
+    def test_filter_person_detections_rejects_large_edge_false_positive(self) -> None:
+        detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.74, bbox=(0, 0, 190, 150)),
+            DetectionRecord(class_id=0, label="person", confidence=0.80, bbox=(60, 40, 150, 150)),
+        ]
+
+        result = _filter_person_detections(detections, (180, 200, 3))
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0].confidence, 0.80)
+
+    def test_filter_person_detections_prefers_center_person(self) -> None:
+        detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.78, bbox=(0, 10, 80, 160)),
+            DetectionRecord(class_id=0, label="person", confidence=0.76, bbox=(60, 20, 140, 170)),
+        ]
+
+        result = _filter_person_detections(detections, (180, 200, 3))
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].bbox, (60, 20, 140, 170))
+
+    def test_predict_frame_requests_person_class_only(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        fake_model = MagicMock()
+        fake_model.predict.return_value = [SimpleNamespace(names={0: "person"}, boxes=[])]
+        detector.loaded_model = LoadedModel(model=fake_model, model_name="yolo11s.pt", source_path="yolo11s.pt")
+        detector.runtime.resolved_device = "cpu"
+        detector.runtime.use_half = False
+        frame = np.zeros((80, 80, 3), dtype=np.uint8)
+
+        detector._predict_frame(frame)
+
+        fake_model.predict.assert_called_once()
+        self.assertEqual(fake_model.predict.call_args.kwargs["classes"], [0])
+
+    @patch("core.camera_runner.get_live_usage_snapshot", return_value={"cpu_usage_percent": 11.0})
+    def test_runtime_health_includes_runtime_and_fallback_observability(self, _usage_mock) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.runtime.active_model_name = "yolo11n.pt"
+        detector.runtime.resolved_device = "cpu"
+        detector.runtime.use_half = False
+        detector.active_runtime_summary = "yolo11n.pt | cpu | imgsz 320"
+        detector.fallback_chain_tried = [{"model_name": "yolo11s.pt", "resolved_device": "cuda:0", "use_half": True}]
+        detector.runtime_step_errors = [{"model_name": "yolo11s.pt", "error": "CUDA boom"}]
+
+        health = detector.runtime_health()
+
+        self.assertEqual(health["active_model_name"], "yolo11n.pt")
+        self.assertEqual(health["resolved_device"], "cpu")
+        self.assertFalse(health["use_half"])
+        self.assertEqual(health["fallback_chain_tried"][0]["model_name"], "yolo11s.pt")
+        self.assertEqual(health["step_errors"][0]["error"], "CUDA boom")
+        self.assertEqual(health["live_usage_snapshot"]["cpu_usage_percent"], 11.0)

@@ -6,10 +6,10 @@ from utils.console_ui import _usage_row, explain_runtime_failure, progress_bar_c
 
 
 class ConsoleUiTests(unittest.TestCase):
-    def test_progress_bar_uses_unicode_bar_and_dot(self) -> None:
+    def test_progress_bar_uses_unicode_bar_without_dot_tail(self) -> None:
         bar = progress_bar_colored(50, width=6)
         self.assertIn("\u2588", bar)
-        self.assertIn("\u00b7", bar)
+        self.assertNotIn("\u00b7", bar)
 
     def test_explain_runtime_failure_for_camera_error(self) -> None:
         reason, suggestions, commands = explain_runtime_failure(RuntimeError("Không mở được camera."))

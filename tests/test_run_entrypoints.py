@@ -51,41 +51,47 @@ class RunEntrypointsTests(unittest.TestCase):
         )
         run_camera_session_mock.assert_called_once_with(runtime=start_options.runtime, camera_index=1)
 
+    @patch("run_app.run_camera_session")
+    @patch("run_app.print_runtime_dashboard")
     @patch("run_app.resolve_start_bundle")
-    @patch("run_app.launch_chat_ai_app")
     @patch("run_app.parse_args")
-    def test_run_app_main_opens_chat_ui_when_ui_target_is_selected(
+    def test_run_app_main_runs_camera_only(
         self,
         parse_args_mock,
-        launch_chat_mock,
         resolve_start_bundle_mock,
+        print_dashboard_mock,
+        run_camera_session_mock,
     ) -> None:
-        args = type("Args", (), {"mode": None, "model": None, "camera_index": 2, "target": None})()
+        args = type("Args", (), {"mode": None, "model": None, "camera_index": 2, "target": "ui"})()
         parse_args_mock.return_value = args
+        runtime = object()
+        hardware = object()
         resolve_start_bundle_mock.return_value = SimpleNamespace(
             selected_mode="high",
             selected_model="models/trained/best.pt",
-            launch_target="ui",
-            runtime=object(),
-            hardware=object(),
+            launch_target="camera",
+            runtime=runtime,
+            hardware=hardware,
         )
-        launch_chat_mock.return_value = 0
 
         exit_code = run_app.main()
 
         self.assertEqual(exit_code, 0)
+        self.assertEqual(args.target, "camera")
         resolve_start_bundle_mock.assert_called_once_with(
             requested_mode=None,
             requested_model=None,
-            requested_target=None,
-            preferred_target="ui",
+            requested_target="camera",
+            preferred_target="camera",
         )
-        launch_chat_mock.assert_called_once_with(
-            window_title="Chat AI",
+        print_dashboard_mock.assert_called_once_with(
+            title="YOLO Camera Realtime",
+            runtime=runtime,
+            hardware=hardware,
             camera_index=2,
-            app_mode="high",
-            selected_model="models/trained/best.pt",
+            launch_target="camera",
         )
+        run_camera_session_mock.assert_called_once_with(runtime=runtime, camera_index=2)
 
     @patch("run_train.main")
     def test_run_train_module_exposes_training_main(self, train_main_mock) -> None:

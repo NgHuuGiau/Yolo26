@@ -12,10 +12,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    args = parse_args()
+    args.target = "camera"
     return run_targeted_entrypoint(
-        args=parse_args(),
-        preferred_target="ui",
-        ui_title="Chat AI",
+        args=args,
+        preferred_target="camera",
+        ui_title="YOLO Camera",
         dashboard_title="YOLO Camera Realtime",
         resolve_start_bundle_fn=resolve_start_bundle,
         launch_chat_ai_app_fn=launch_chat_ai_app,

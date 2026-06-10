@@ -50,6 +50,21 @@ LIGHT_TEXT_TERTIARY = (122, 128, 136)
 LIGHT_ACCENT = (0, 122, 204)
 LIGHT_SUCCESS = (78, 201, 176)
 LIGHT_WARNING = (220, 220, 170)
+DISPLAY_MIN_CONFIDENCE = 0.50
+PERSON_MIN_CONFIDENCE = 0.60
+DISPLAY_NMS_IOU = 0.45
+PERSON_MAX_AREA_RATIO = 0.6
+PERSON_MAX_WIDTH_HEIGHT_RATIO = 1.35
+PERSON_EDGE_TOUCH_RATIO = 0.02
+PERSON_CENTER_BIAS_WEIGHT = 0.35
+PERSON_CLASS_ID = 0
+TRACKING_MATCH_IOU = 0.25
+TRACKING_SMOOTHING_ALPHA = 0.72
+TRACKING_FAST_SMOOTHING_ALPHA = 0.38
+TRACKING_STABLE_SMOOTHING_ALPHA = 0.88
+TRACKING_MATCH_CENTER_RATIO = 0.45
+TRACKING_PREDICTION_MOTION_RATIO = 0.18
+TRACKING_STABLE_MOTION_RATIO = 0.06
 
 @dataclass
 class DetectionRecord:
@@ -86,6 +101,241 @@ def _to_yolo_bbox_line(class_id: int, bbox: tuple[int, int, int, int], image_sha
         f"{box_width / image_width:.6f} "
         f"{box_height / image_height:.6f}"
     )
+
+
+def _bbox_iou(box_a: tuple[int, int, int, int], box_b: tuple[int, int, int, int]) -> float:
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+    inter_x1 = max(ax1, bx1)
+    inter_y1 = max(ay1, by1)
+    inter_x2 = min(ax2, bx2)
+    inter_y2 = min(ay2, by2)
+    inter_w = max(0, inter_x2 - inter_x1)
+    inter_h = max(0, inter_y2 - inter_y1)
+    inter_area = inter_w * inter_h
+    if inter_area <= 0:
+        return 0.0
+    area_a = max(0, ax2 - ax1) * max(0, ay2 - ay1)
+    area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
+    union = area_a + area_b - inter_area
+    if union <= 0:
+        return 0.0
+    return inter_area / union
+
+
+def _smooth_bbox(
+    previous_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+    alpha: float = TRACKING_SMOOTHING_ALPHA,
+) -> tuple[int, int, int, int]:
+    alpha = max(0.0, min(1.0, float(alpha)))
+    return tuple(
+        int(round((previous_value * alpha) + (current_value * (1.0 - alpha))))
+        for previous_value, current_value in zip(previous_bbox, current_bbox)
+    )
+
+
+def _bbox_center(box: tuple[int, int, int, int]) -> tuple[float, float]:
+    x1, y1, x2, y2 = box
+    return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+
+
+def _bbox_center_distance(box_a: tuple[int, int, int, int], box_b: tuple[int, int, int, int]) -> float:
+    center_ax, center_ay = _bbox_center(box_a)
+    center_bx, center_by = _bbox_center(box_b)
+    return float(((center_ax - center_bx) ** 2 + (center_ay - center_by) ** 2) ** 0.5)
+
+
+def _bbox_reference_size(box: tuple[int, int, int, int]) -> float:
+    x1, y1, x2, y2 = box
+    width = max(1, x2 - x1)
+    height = max(1, y2 - y1)
+    return float(max(width, height))
+
+
+def _estimate_motion_bbox(
+    previous_display_bbox: tuple[int, int, int, int],
+    previous_observed_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+) -> tuple[int, int, int, int]:
+    deltas = [current_value - previous_value for previous_value, current_value in zip(previous_observed_bbox, current_bbox)]
+    return tuple(previous_display_value + delta for previous_display_value, delta in zip(previous_display_bbox, deltas))
+
+
+def _adaptive_tracking_alpha(
+    previous_observed_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+) -> float:
+    movement_ratio = _bbox_movement_ratio(previous_observed_bbox, current_bbox)
+    if movement_ratio <= TRACKING_STABLE_MOTION_RATIO:
+        return TRACKING_STABLE_SMOOTHING_ALPHA
+    if movement_ratio >= 0.35:
+        return TRACKING_FAST_SMOOTHING_ALPHA
+    blend = max(0.0, min(1.0, (movement_ratio - TRACKING_STABLE_MOTION_RATIO) / (0.35 - TRACKING_STABLE_MOTION_RATIO)))
+    return TRACKING_STABLE_SMOOTHING_ALPHA + ((TRACKING_FAST_SMOOTHING_ALPHA - TRACKING_STABLE_SMOOTHING_ALPHA) * blend)
+
+
+def _bbox_movement_ratio(
+    previous_observed_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+) -> float:
+    movement_distance = _bbox_center_distance(previous_observed_bbox, current_bbox)
+    reference_size = max(_bbox_reference_size(previous_observed_bbox), _bbox_reference_size(current_bbox), 1.0)
+    return movement_distance / reference_size
+
+
+def _can_match_detection(
+    previous_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+    iou_threshold: float = TRACKING_MATCH_IOU,
+    center_ratio_threshold: float = TRACKING_MATCH_CENTER_RATIO,
+) -> bool:
+    overlap = _bbox_iou(previous_bbox, current_bbox)
+    if overlap >= iou_threshold:
+        return True
+    center_distance = _bbox_center_distance(previous_bbox, current_bbox)
+    reference_size = max(_bbox_reference_size(previous_bbox), _bbox_reference_size(current_bbox), 1.0)
+    return center_distance <= (reference_size * center_ratio_threshold)
+
+
+def _tracking_match_score(
+    previous_bbox: tuple[int, int, int, int],
+    current_bbox: tuple[int, int, int, int],
+) -> float:
+    overlap = _bbox_iou(previous_bbox, current_bbox)
+    center_distance = _bbox_center_distance(previous_bbox, current_bbox)
+    reference_size = max(_bbox_reference_size(previous_bbox), _bbox_reference_size(current_bbox), 1.0)
+    normalized_distance = min(1.0, center_distance / reference_size)
+    return overlap + (1.0 - normalized_distance)
+
+
+def _match_and_smooth_detections(
+    current_detections: list[DetectionRecord],
+    previous_detections: list[DetectionRecord],
+    previous_observed_detections: list[DetectionRecord] | None = None,
+    iou_threshold: float = TRACKING_MATCH_IOU,
+) -> list[DetectionRecord]:
+    if not current_detections:
+        return []
+    if not previous_detections:
+        return list(current_detections)
+
+    smoothed: list[DetectionRecord] = []
+    matched_previous_indices: set[int] = set()
+    for current in current_detections:
+        best_match_index = -1
+        best_score = -1.0
+        for index, previous in enumerate(previous_detections):
+            if index in matched_previous_indices:
+                continue
+            if previous.class_id != current.class_id or previous.label != current.label:
+                continue
+            if not _can_match_detection(previous.bbox, current.bbox, iou_threshold=iou_threshold):
+                continue
+            score = _tracking_match_score(previous.bbox, current.bbox)
+            if score > best_score:
+                best_score = score
+                best_match_index = index
+        if best_match_index >= 0:
+            matched_previous_indices.add(best_match_index)
+            previous = previous_detections[best_match_index]
+            previous_observed = (
+                previous_observed_detections[best_match_index]
+                if previous_observed_detections is not None and best_match_index < len(previous_observed_detections)
+                else previous
+            )
+            adaptive_alpha = _adaptive_tracking_alpha(previous_observed.bbox, current.bbox)
+            movement_ratio = _bbox_movement_ratio(previous_observed.bbox, current.bbox)
+            if movement_ratio >= TRACKING_PREDICTION_MOTION_RATIO:
+                smoothing_source_bbox = _estimate_motion_bbox(previous.bbox, previous_observed.bbox, current.bbox)
+            else:
+                smoothing_source_bbox = previous.bbox
+            smoothed.append(
+                DetectionRecord(
+                    class_id=current.class_id,
+                    label=current.label,
+                    confidence=current.confidence,
+                    bbox=_smooth_bbox(smoothing_source_bbox, current.bbox, alpha=adaptive_alpha),
+                )
+            )
+            continue
+        smoothed.append(current)
+    return smoothed
+
+
+def _dedupe_display_detections(detections: list[DetectionRecord], iou_threshold: float = DISPLAY_NMS_IOU) -> list[DetectionRecord]:
+    selected: list[DetectionRecord] = []
+    for detection in sorted(detections, key=lambda item: item.confidence, reverse=True):
+        if any(
+            detection.label == existing.label and _bbox_iou(detection.bbox, existing.bbox) >= iou_threshold
+            for existing in selected
+        ):
+            continue
+        selected.append(detection)
+    return selected
+
+
+def _box_area_ratio(box: tuple[int, int, int, int], frame_shape: tuple[int, ...]) -> float:
+    frame_h, frame_w = frame_shape[:2]
+    x1, y1, x2, y2 = box
+    return (max(0, x2 - x1) * max(0, y2 - y1)) / max(1, frame_w * frame_h)
+
+
+def _touches_frame_edge(box: tuple[int, int, int, int], frame_shape: tuple[int, ...], margin_ratio: float = PERSON_EDGE_TOUCH_RATIO) -> bool:
+    frame_h, frame_w = frame_shape[:2]
+    margin_x = max(1, int(frame_w * margin_ratio))
+    margin_y = max(1, int(frame_h * margin_ratio))
+    x1, y1, x2, y2 = box
+    return x1 <= margin_x or y1 <= margin_y or x2 >= frame_w - margin_x or y2 >= frame_h - margin_y
+
+
+def _person_shape_is_plausible(box: tuple[int, int, int, int]) -> bool:
+    x1, y1, x2, y2 = box
+    width = max(1, x2 - x1)
+    height = max(1, y2 - y1)
+    return (width / height) <= PERSON_MAX_WIDTH_HEIGHT_RATIO
+
+
+def _person_priority_score(box: tuple[int, int, int, int], confidence: float, frame_shape: tuple[int, ...]) -> float:
+    frame_h, frame_w = frame_shape[:2]
+    x1, y1, x2, y2 = box
+    center_x = (x1 + x2) / 2.0
+    frame_center_x = frame_w / 2.0
+    center_distance = abs(center_x - frame_center_x) / max(1.0, frame_center_x)
+    center_bonus = max(0.0, 1.0 - center_distance)
+    return float(confidence) + (center_bonus * PERSON_CENTER_BIAS_WEIGHT)
+
+
+def _filter_person_detections(detections: list[DetectionRecord], frame_shape: tuple[int, ...]) -> list[DetectionRecord]:
+    plausible: list[DetectionRecord] = []
+    for item in detections:
+        if str(item.label).lower() != "person":
+            plausible.append(item)
+            continue
+        if item.confidence < PERSON_MIN_CONFIDENCE:
+            continue
+        if not _person_shape_is_plausible(item.bbox):
+            continue
+        area_ratio = _box_area_ratio(item.bbox, frame_shape)
+        if area_ratio > PERSON_MAX_AREA_RATIO and _touches_frame_edge(item.bbox, frame_shape):
+            continue
+        plausible.append(item)
+
+    person_boxes = [item for item in plausible if str(item.label).lower() == "person"]
+    other_boxes = [item for item in plausible if str(item.label).lower() != "person"]
+    person_boxes = sorted(
+        person_boxes,
+        key=lambda item: _person_priority_score(item.bbox, item.confidence, frame_shape),
+        reverse=True,
+    )
+    if person_boxes:
+        strongest = person_boxes[0]
+        person_boxes = [
+            item
+            for item in person_boxes
+            if item is strongest or _bbox_iou(item.bbox, strongest.bbox) >= 0.2
+        ]
+    return person_boxes + other_boxes
 
 
 def _sanitize_sample_name(value: str) -> str:
@@ -255,8 +505,12 @@ class CameraDetector:
         self.last_status_message = "Sẵn sàng khởi tạo camera."
         self.last_error_message = ""
         self.active_runtime_summary = ""
+        self.fallback_chain_tried: list[dict[str, Any]] = []
+        self.runtime_step_errors: list[dict[str, Any]] = []
         self.last_raw_frame: np.ndarray | None = None
         self.last_detections: list[DetectionRecord] = []
+        self.previous_display_detections: list[DetectionRecord] = []
+        self.previous_observed_detections: list[DetectionRecord] = []
         self.frame_index = 0
         self.detect_interval = 1
         self.base_detect_interval = 1
@@ -268,6 +522,8 @@ class CameraDetector:
         self.inference_lock = threading.Lock()
         self.pending_inference_frame: np.ndarray | None = None
         self.pending_inference_error: Exception | None = None
+        self.previous_gray: np.ndarray | None = None
+        self.last_motion_score: float = 0.0
 
     @property
     def capture(self) -> cv2.VideoCapture | None:
@@ -283,11 +539,22 @@ class CameraDetector:
 
     def initialize(self) -> None:
         last_error: Exception | None = None
+        self.fallback_chain_tried = []
+        self.runtime_step_errors = []
         for runtime in [self.runtime, *list(iter_fallback_configs(self.runtime))]:
+            attempt = {
+                "profile_name": runtime.profile_name,
+                "model_name": runtime.primary_model_name,
+                "resolved_device": runtime.resolved_device,
+                "imgsz": int(runtime.imgsz),
+                "use_half": bool(runtime.use_half),
+            }
+            self.fallback_chain_tried.append(attempt)
             try:
                 self._stop_inference_worker()
                 self.runtime = runtime
                 self.loaded_model, self.runtime.resolved_device = load_yolo_model(runtime)
+                self.runtime.use_half = bool(self.runtime.use_half) and self.runtime.resolved_device.startswith("cuda")
                 self.release()
                 self.camera_stream = CameraStream(camera_index=self.camera_index)
                 self.camera_stream.open(self.runtime.camera_width, self.runtime.camera_height)
@@ -298,8 +565,12 @@ class CameraDetector:
                 self.detect_interval = self.base_detect_interval
                 self.last_detect_adjust_frame = 0
                 self.last_detections = []
+                self.previous_display_detections = []
+                self.previous_observed_detections = []
                 self.pending_inference_error = None
                 self.pending_inference_frame = None
+                self.previous_gray = None
+                self.last_motion_score = 0.0
                 self._start_inference_worker()
                 self.last_error_message = ""
                 self.active_runtime_summary = (
@@ -313,6 +584,7 @@ class CameraDetector:
                 last_error = exc
                 self.last_error_message = str(exc)
                 self.last_status_message = "Khởi tạo runtime thất bại, đang thử fallback."
+                self.runtime_step_errors.append({**attempt, "error": str(exc)})
                 logger.warning("Runtime failed, trying fallback: %s", exc)
                 self.release()
         raise RuntimeError(f"Không khởi tạo được detector. Lỗi cuối: {last_error}")
@@ -339,26 +611,34 @@ class CameraDetector:
             return False, None, [], 0.0
         self.last_raw_frame = frame.copy()
         self.frame_index += 1
-        if self.frame_index == 1 and not self.last_detections:
-            try:
-                self.last_detections = self._predict_frame(frame)
-            except Exception as exc:
-                logger.warning("Inference failed on %s: %s", self.runtime.primary_model_name, exc)
-                self.recovery_count += 1
-                self.last_error_message = str(exc)
-                self.last_status_message = "Suy luận bị lỗi, hệ thống đang tự phục hồi và thử cấu hình an toàn hơn."
-                self.initialize()
-                return False, None, [], 0.0
+        try:
+            current_detections = self._predict_frame(frame)
+            self.last_detections = list(current_detections)
+        except Exception as exc:
+            logger.warning("Inference failed on %s: %s", self.runtime.primary_model_name, exc)
+            self.recovery_count += 1
+            self.last_error_message = str(exc)
+            self.last_status_message = "Suy luận bị lỗi, hệ thống đang tự phục hồi và thử cấu hình an toàn hơn."
+            self.initialize()
+            return False, None, [], 0.0
+
+        motion_score, current_gray = _compute_motion_score(frame, self.previous_gray)
+        self.last_motion_score = motion_score
+        self.previous_gray = current_gray
+        detections = self._smooth_display_detections(self._effective_display_detections(current_detections))
+        if motion_score > MOTION_STABLE_THRESHOLD and detections:
+            self.last_status_message = f"Đang theo dõi vật thể chuyển động với {len(detections)} đối tượng."
         else:
-            self._queue_inference(frame)
-        detections = self._effective_display_detections(self.last_detections)
+            if len(detections) > 0:
+                self.last_status_message = f"Đang nhận diện ổn định với {len(detections)} đối tượng."
+            else:
+                self.last_status_message = "Chưa có vật thể nào được nhận diện."
         processed_frame = draw_detection_results(
             image=frame,
             detections=detections,
             box_thickness=self._effective_box_thickness(),
             label_font_scale=self._effective_label_font_scale(),
         )
-        self.last_status_message = f"Đang nhận diện ổn định với {len(detections)} đối tượng."
         fps = self._update_fps()
         return True, processed_frame, detections, fps
 
@@ -432,16 +712,18 @@ class CameraDetector:
             device=self.runtime.resolved_device,
             half=self.runtime.use_half,
             max_det=self._effective_max_det(),
+            classes=[PERSON_CLASS_ID],
             verbose=False,
             stream=False,
         )
-        return self._parse_results(results)
+        parsed = self._parse_results(results)
+        return _filter_person_detections(parsed, frame.shape)
 
     def _effective_inference_imgsz(self) -> int:
         if self.runtime.profile_name == "low":
             return self.runtime.imgsz
         if self.runtime.profile_name == "medium":
-            return min(self.runtime.imgsz, 512)
+            return min(self.runtime.imgsz, 640)
         return self.runtime.imgsz
 
     def _effective_max_det(self) -> int:
@@ -459,11 +741,27 @@ class CameraDetector:
         return self.runtime.conf
 
     def _effective_display_detections(self, detections: list[DetectionRecord]) -> list[DetectionRecord]:
+        filtered = []
+        for item in detections:
+            min_confidence = PERSON_MIN_CONFIDENCE if str(item.label).lower() == "person" else DISPLAY_MIN_CONFIDENCE
+            if item.confidence >= min_confidence:
+                filtered.append(item)
+        cleaned = _dedupe_display_detections(filtered)
         if self.runtime.profile_name == "low":
-            return sorted(detections, key=lambda item: item.confidence, reverse=True)[:6]
+            return cleaned[:3]
         if self.runtime.profile_name == "medium":
-            return sorted(detections, key=lambda item: item.confidence, reverse=True)[:8]
-        return list(detections)
+            return cleaned[:6]
+        return cleaned[:8]
+
+    def _smooth_display_detections(self, detections: list[DetectionRecord]) -> list[DetectionRecord]:
+        smoothed = _match_and_smooth_detections(
+            current_detections=detections,
+            previous_detections=self.previous_display_detections,
+            previous_observed_detections=self.previous_observed_detections,
+        )
+        self.previous_display_detections = list(smoothed)
+        self.previous_observed_detections = list(detections)
+        return smoothed
 
     def _effective_box_thickness(self) -> int:
         if self.runtime.profile_name == "low":
@@ -508,9 +806,11 @@ class CameraDetector:
 
     def release(self) -> None:
         self._stop_inference_worker()
+        self.previous_display_detections = []
+        self.previous_observed_detections = []
         if self.camera_stream is not None:
             self.camera_stream.release()
-            self.camera_stream = None
+        self.camera_stream = None
         self.last_status_message = "Camera đã dừng."
 
     def save_training_sample(
@@ -558,6 +858,12 @@ class CameraDetector:
             "recovery_count": self.recovery_count,
             "runtime": self.active_runtime_summary,
             "detect_interval": self.detect_interval,
+            "active_model_name": self.runtime.active_model_name or self.runtime.primary_model_name,
+            "resolved_device": self.runtime.resolved_device,
+            "use_half": bool(self.runtime.use_half),
+            "fallback_chain_tried": list(self.fallback_chain_tried),
+            "step_errors": list(self.runtime_step_errors),
+            "live_usage_snapshot": get_live_usage_snapshot(),
         }
 
 
