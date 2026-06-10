@@ -58,13 +58,13 @@ PERSON_MAX_WIDTH_HEIGHT_RATIO = 1.35
 PERSON_EDGE_TOUCH_RATIO = 0.02
 PERSON_CENTER_BIAS_WEIGHT = 0.35
 PERSON_CLASS_ID = 0
-TRACKING_MATCH_IOU = 0.25
-TRACKING_SMOOTHING_ALPHA = 0.72
-TRACKING_FAST_SMOOTHING_ALPHA = 0.38
-TRACKING_STABLE_SMOOTHING_ALPHA = 0.88
-TRACKING_MATCH_CENTER_RATIO = 0.45
-TRACKING_PREDICTION_MOTION_RATIO = 0.18
-TRACKING_STABLE_MOTION_RATIO = 0.06
+TRACKING_MATCH_IOU = 0.30
+TRACKING_SMOOTHING_ALPHA = 0.75
+TRACKING_FAST_SMOOTHING_ALPHA = 0.50
+TRACKING_STABLE_SMOOTHING_ALPHA = 0.92
+TRACKING_MATCH_CENTER_RATIO = 0.50
+TRACKING_PREDICTION_MOTION_RATIO = 0.30
+TRACKING_STABLE_MOTION_RATIO = 0.10
 
 @dataclass
 class DetectionRecord:
@@ -159,7 +159,8 @@ def _estimate_motion_bbox(
     current_bbox: tuple[int, int, int, int],
 ) -> tuple[int, int, int, int]:
     deltas = [current_value - previous_value for previous_value, current_value in zip(previous_observed_bbox, current_bbox)]
-    return tuple(previous_display_value + delta for previous_display_value, delta in zip(previous_display_bbox, deltas))
+    predicted = tuple(previous_display_value + delta for previous_display_value, delta in zip(previous_display_bbox, deltas))
+    return predicted
 
 
 def _adaptive_tracking_alpha(
