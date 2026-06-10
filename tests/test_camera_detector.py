@@ -94,7 +94,10 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(detector.runtime.primary_model_name, "yolo11n.pt")
         self.assertIs(detector.capture, capture)
 
-    @patch("core.camera_runner.draw_detection_results", side_effect=lambda image, detections, box_thickness, label_font_scale: image)
+    @patch(
+        "core.camera_runner.draw_detection_results",
+        side_effect=lambda image, detections, box_thickness, label_font_scale, motion_trails=None: image,
+    )
     @patch("core.camera_runner.cv2.VideoCapture")
     @patch("core.camera_runner.load_yolo_model")
     def test_read_and_detect_returns_parsed_detections(
@@ -141,6 +144,15 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(detections[0].label, "car")
         self.assertEqual(detections[0].class_id, 1)
 
+    def test_parse_results_refines_person_box_to_face_box(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        results = [SimpleNamespace(names={0: "person"}, boxes=[_FakeBox(0, 0.91, [40, 20, 120, 180])])]
+
+        detections = detector._parse_results(results)
+
+        self.assertEqual(detections[0].label, "face")
+        self.assertEqual(detections[0].bbox, (57, 33, 103, 81))
+
     def test_save_current_training_sample_writes_image_and_yolo_label(self) -> None:
         detector = CameraDetector(runtime=self._runtime())
         detector.last_raw_frame = np.zeros((100, 200, 3), dtype=np.uint8)
@@ -178,7 +190,7 @@ class CameraDetectorTests(unittest.TestCase):
 
                 os.chdir(temp_dir)
                 Path("training").mkdir(parents=True, exist_ok=True)
-                Path("training/data.yaml").write_text("names:\n  0: person\n", encoding="utf-8")
+                Path("training/data.yaml").write_text("names:\n- person\n", encoding="utf-8")
                 image_path, label_path = detector.save_current_training_sample("Nguoi doi non 01")
                 self.assertEqual(image_path.name, "Nguoi_doi_non_01.jpg")
                 self.assertEqual(label_path.read_text(encoding="utf-8"), "")
@@ -458,7 +470,7 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(len(detections), 1)
         self.assertEqual(detections[0].label, "car")
 
-    def test_read_and_detect_hides_person_detections(self) -> None:
+    def test_read_and_detect_normalizes_person_detections_to_face(self) -> None:
         detector = CameraDetector(runtime=self._runtime())
         detector.camera_stream = MagicMock()
         frame = np.zeros((80, 80, 3), dtype=np.uint8)
@@ -480,7 +492,7 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(processed_frame.shape, frame.shape)
         self.assertEqual(len(detections), 1)
-        self.assertEqual(detections[0].label, "person")
+        self.assertEqual(detections[0].label, "face")
 
     def test_read_and_detect_does_not_keep_stale_boxes_when_current_frame_has_no_detection(self) -> None:
         detector = CameraDetector(runtime=self._runtime())
@@ -571,6 +583,68 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].bbox, (40, 40, 100, 160))
 
+    def test_smooth_display_detections_keeps_face_box_stable_for_tiny_motion(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="face", confidence=0.90, bbox=(40, 40, 100, 100))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="face", confidence=0.90, bbox=(40, 40, 100, 100))
+        ]
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="face", confidence=0.92, bbox=(41, 41, 101, 101))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].bbox, (40, 40, 100, 100))
+
+    def test_smooth_display_detections_allows_face_box_to_follow_real_motion(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="face", confidence=0.90, bbox=(40, 40, 100, 100))
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="face", confidence=0.90, bbox=(40, 40, 100, 100))
+        ]
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="face", confidence=0.93, bbox=(58, 52, 118, 112))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertNotEqual(result[0].bbox, (40, 40, 100, 100))
+
+    def test_smooth_display_detections_keeps_track_id_and_updates_motion_trail(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+        detector.previous_display_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.90, bbox=(40, 40, 100, 160), track_id=7)
+        ]
+        detector.previous_observed_detections = [
+            DetectionRecord(class_id=0, label="person", confidence=0.90, bbox=(40, 40, 100, 160), track_id=7)
+        ]
+        detector.display_trails = {7: [(70, 100)]}
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="person", confidence=0.93, bbox=(60, 55, 120, 175))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].track_id, 7)
+        self.assertIn(7, detector.display_trails)
+        self.assertGreaterEqual(len(detector.display_trails[7]), 2)
+
+    def test_smooth_display_detections_assigns_track_id_for_new_person(self) -> None:
+        detector = CameraDetector(runtime=self._runtime())
+
+        result = detector._smooth_display_detections(
+            [DetectionRecord(class_id=0, label="person", confidence=0.95, bbox=(30, 30, 90, 150))]
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertGreaterEqual(result[0].track_id, 1)
+        self.assertIn(result[0].track_id, detector.display_trails)
+
     def test_effective_display_detections_keeps_multiple_people_when_not_overlapping(self) -> None:
         detector = CameraDetector(runtime=self._runtime())
         detections = [
@@ -613,8 +687,8 @@ class CameraDetectorTests(unittest.TestCase):
 
     def test_filter_person_detections_rejects_weak_person_confidence(self) -> None:
         detections = [
-            DetectionRecord(class_id=0, label="person", confidence=0.59, bbox=(40, 20, 120, 170)),
-            DetectionRecord(class_id=0, label="person", confidence=0.78, bbox=(45, 25, 125, 175)),
+            DetectionRecord(class_id=0, label="face", confidence=0.59, bbox=(40, 20, 120, 170)),
+            DetectionRecord(class_id=0, label="face", confidence=0.78, bbox=(45, 25, 125, 175)),
         ]
 
         result = _filter_person_detections(detections, (200, 200, 3))
@@ -648,8 +722,8 @@ class CameraDetectorTests(unittest.TestCase):
 
     def test_filter_person_detections_rejects_large_edge_false_positive(self) -> None:
         detections = [
-            DetectionRecord(class_id=0, label="person", confidence=0.74, bbox=(0, 0, 190, 150)),
-            DetectionRecord(class_id=0, label="person", confidence=0.80, bbox=(60, 40, 150, 150)),
+            DetectionRecord(class_id=0, label="face", confidence=0.74, bbox=(0, 0, 190, 150)),
+            DetectionRecord(class_id=0, label="face", confidence=0.80, bbox=(60, 40, 150, 150)),
         ]
 
         result = _filter_person_detections(detections, (180, 200, 3))
@@ -659,8 +733,8 @@ class CameraDetectorTests(unittest.TestCase):
 
     def test_filter_person_detections_prefers_center_person(self) -> None:
         detections = [
-            DetectionRecord(class_id=0, label="person", confidence=0.78, bbox=(0, 10, 80, 160)),
-            DetectionRecord(class_id=0, label="person", confidence=0.76, bbox=(60, 20, 140, 170)),
+            DetectionRecord(class_id=0, label="face", confidence=0.78, bbox=(0, 10, 80, 160)),
+            DetectionRecord(class_id=0, label="face", confidence=0.76, bbox=(60, 20, 140, 170)),
         ]
 
         result = _filter_person_detections(detections, (180, 200, 3))
@@ -668,10 +742,10 @@ class CameraDetectorTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].bbox, (60, 20, 140, 170))
 
-    def test_predict_frame_requests_person_class_only(self) -> None:
+    def test_predict_frame_requests_all_classes(self) -> None:
         detector = CameraDetector(runtime=self._runtime())
         fake_model = MagicMock()
-        fake_model.predict.return_value = [SimpleNamespace(names={0: "person"}, boxes=[])]
+        fake_model.predict.return_value = [SimpleNamespace(names={0: "person", 2: "car"}, boxes=[])]
         detector.loaded_model = LoadedModel(model=fake_model, model_name="yolo11s.pt", source_path="yolo11s.pt")
         detector.runtime.resolved_device = "cpu"
         detector.runtime.use_half = False
@@ -680,7 +754,25 @@ class CameraDetectorTests(unittest.TestCase):
         detector._predict_frame(frame)
 
         fake_model.predict.assert_called_once()
-        self.assertEqual(fake_model.predict.call_args.kwargs["classes"], [0])
+        self.assertNotIn("classes", fake_model.predict.call_args.kwargs)
+
+    def test_update_training_data_name_does_not_override_multiclass_names(self) -> None:
+        with TemporaryDirectory(dir="D:\\YOLO") as temp_dir:
+            previous_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(temp_dir)
+                Path("training").mkdir(parents=True, exist_ok=True)
+                original = "names:\n- person\n- bicycle\n"
+                Path("training/data.yaml").write_text(original, encoding="utf-8")
+                from core.camera_runner import _update_training_data_name
+
+                _update_training_data_name("custom_name")
+
+                self.assertEqual(Path("training/data.yaml").read_text(encoding="utf-8"), original)
+            finally:
+                os.chdir(previous_cwd)
 
     @patch("core.camera_runner.get_live_usage_snapshot", return_value={"cpu_usage_percent": 11.0})
     def test_runtime_health_includes_runtime_and_fallback_observability(self, _usage_mock) -> None:

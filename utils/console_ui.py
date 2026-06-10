@@ -48,7 +48,7 @@ ORANGE = "\033[38;5;208m"
 BLUE = "\033[38;5;81m"
 DIM = "\033[2m"
 CARD_WIDTH = 96
-BOOT_BAR_WIDTH = 24
+BOOT_BAR_WIDTH = 32
 
 
 def _ensure_utf8_console() -> None:
@@ -169,16 +169,22 @@ def _usage_color(percent: float | None) -> str:
 def progress_bar_colored(score: int, width: int | None = None) -> str:
     normalized = max(0, min(100, score))
     if width is None:
-        width = min(BOOT_BAR_WIDTH, max(12, (_terminal_columns() - len("0[]100")) // 2))
-    filled = round((normalized / 100) * width)
+        width = min(BOOT_BAR_WIDTH, max(12, (_terminal_columns() - len("0 [] 100")) // 2))
+    total_units = width * 8
+    filled_units = round((normalized / 100) * total_units)
+    full_blocks = filled_units // 8
+    partial_block = filled_units % 8
+    partial_chars = ("", "▏", "▎", "▍", "▌", "▋", "▊", "▉")
     parts: list[str] = []
     for index in range(width):
-        if index >= filled:
-            parts.append(" ")
-        else:
-            color = YELLOW if index < width // 3 else ORANGE if index < (width * 2) // 3 else RED
+        color = YELLOW if index < width // 3 else ORANGE if index < (width * 2) // 3 else RED
+        if index < full_blocks:
             parts.append(f"{color}\u2588{RESET}")
-    return f"0[{' '.join(parts)}]100"
+        elif index == full_blocks and partial_block:
+            parts.append(f"{color}{partial_chars[partial_block]}{RESET}")
+        else:
+            parts.append(" ")
+    return f"0 [{''.join(parts)}] 100"
 
 
 def _usage_row(label: str, percent: float | None) -> str:
@@ -379,7 +385,6 @@ def print_runtime_dashboard(title: str, runtime: Any, hardware: Any, camera_inde
         _row("Lựa chọn", values["chosen_label"], GREEN),
         _row("Mục tiêu", f"{values['requested_profile']} -> {values['cuda_target']}", MAGENTA),
         _row("Thực tế", f"{profile_label(values['runtime_profile'])} ({values['runtime_profile']})", values["profile_color"]),
-        _row("Mức sẵn sàng", dashboard_boot_bar(values["score"], BOOT_BAR_WIDTH), values["ready_text_color"], bounded=False),
         _line(_rule("-"), CYAN),
         _section("PHẦN CỨNG", values["hardware_section_color"]),
         _row("CPU", getattr(hardware, "cpu_name", "Không rõ CPU"), GREEN),
@@ -488,21 +493,34 @@ class BootProgress:
         self.current = 0
         self.current_label = "Đang chuẩn bị khởi động"
         self.started = False
+        self._last_announced_label = ""
 
     def start(self) -> None:
         if not self.enabled or self.started:
             return
         self.started = True
+        self._announce_label(force=True)
         self._render_line()
 
     def _clear_line(self) -> None:
         print(f"\r{' ' * _terminal_columns()}\r", end="", flush=True)
 
-    def _render_line(self) -> None:
-        self._clear_line()
+    def _announce_label(self, force: bool = False) -> None:
+        if not self.enabled:
+            return
         title = " ".join(str(self.title).split())
         label = " ".join(str(self.current_label).split())
-        content = f"{title} | {label} | {progress_bar_colored(self.current)}"
+        if not force and label == self._last_announced_label:
+            return
+        if self.started:
+            self._clear_line()
+            print()
+        print(_line(f"{title} | {label}", CYAN))
+        self._last_announced_label = label
+
+    def _render_line(self) -> None:
+        self._clear_line()
+        content = f"Mức sẵn sàng     {progress_bar_colored(self.current)}"
         print(_line(content, _score_color(self.current)), end="", flush=True)
 
     def advance_to(self, target: int, label: str) -> None:
@@ -511,13 +529,17 @@ class BootProgress:
             self.current = max(self.current, target)
             return
         self.start()
+        self._announce_label()
         target = max(self.current, min(100, target))
         while self.current < target:
-            self.current += 1
+            remaining = target - self.current
+            step = 1 if remaining <= 8 else 2
+            self.current = min(target, self.current + step)
             self._render_line()
-            time.sleep(0.01 if self.current < 90 else 0.016)
+            time.sleep(0.008 if self.current < 90 else 0.012)
 
     def finish(self, label: str = "Sẵn sàng mở camera") -> None:
         self.advance_to(100, label)
         if self.enabled:
             self._clear_line()
+            print(_line(f"Mức sẵn sàng     {progress_bar_colored(100)}", GREEN))

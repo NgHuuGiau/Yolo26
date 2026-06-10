@@ -43,14 +43,55 @@ def _draw_text_with_background(
     cv2.putText(image, text, (x + 7, y), font, font_scale, text_color, thickness, cv2.LINE_AA)
 
 
+def _clamp_bbox_to_image(
+    bbox: tuple[int, int, int, int],
+    image_shape: tuple[int, ...],
+) -> tuple[int, int, int, int] | None:
+    image_height, image_width = image_shape[:2]
+    if image_height <= 0 or image_width <= 0:
+        return None
+    x1, y1, x2, y2 = [int(value) for value in bbox]
+    left = max(0, min(x1, x2, image_width - 1))
+    top = max(0, min(y1, y2, image_height - 1))
+    right = max(0, min(max(x1, x2), image_width - 1))
+    bottom = max(0, min(max(y1, y2), image_height - 1))
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right, bottom)
+
+
 def draw_detection_results(
     image: np.ndarray,
     detections: Iterable,
     box_thickness: int = 2,
     label_font_scale: float = 0.8,
+    motion_trails: dict[int, list[tuple[int, int]]] | None = None,
 ) -> np.ndarray:
-    for detection in detections:
-        x1, y1, x2, y2 = detection.bbox
+    trail_overlay = image.copy()
+    drew_trail = False
+    detection_list = list(detections)
+    for detection in detection_list:
+        if not motion_trails:
+            continue
+        trail_points = motion_trails.get(getattr(detection, "track_id", -1), [])
+        if len(trail_points) < 2:
+            continue
+        drew_trail = True
+        box_color = _color_for_label(detection.label)
+        for index in range(1, len(trail_points)):
+            start = trail_points[index - 1]
+            end = trail_points[index]
+            segment_ratio = index / max(1, len(trail_points) - 1)
+            thickness = max(1, int(round(max(1, box_thickness) * (0.6 + (segment_ratio * 0.8)))))
+            cv2.line(trail_overlay, start, end, box_color, thickness, cv2.LINE_AA)
+            cv2.circle(trail_overlay, end, max(1, thickness // 2), box_color, -1, cv2.LINE_AA)
+    if drew_trail:
+        image = cv2.addWeighted(trail_overlay, 0.30, image, 0.70, 0.0)
+    for detection in detection_list:
+        clamped_bbox = _clamp_bbox_to_image(detection.bbox, image.shape)
+        if clamped_bbox is None:
+            continue
+        x1, y1, x2, y2 = clamped_bbox
         box_color = _color_for_label(detection.label)
         cv2.rectangle(image, (x1, y1), (x2, y2), box_color, max(2, box_thickness))
         label_text = f"{detection.label} {detection.confidence:.2f}"

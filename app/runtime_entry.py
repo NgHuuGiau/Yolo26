@@ -45,7 +45,7 @@ def run_targeted_entrypoint(
     progress.advance_to(16, "Đang nhận cấu hình khởi động")
     progress.advance_to(42, "Đang kiểm tra CPU / GPU / CUDA")
     progress.advance_to(68, "Đang chọn model và runtime phù hợp")
-    progress.advance_to(88, "Đang mở camera")
+    progress.advance_to(88, "Đang chuẩn bị mở camera")
     progress.finish("Sẵn sàng mở camera")
     print_runtime_dashboard_fn(
         title=dashboard_title,

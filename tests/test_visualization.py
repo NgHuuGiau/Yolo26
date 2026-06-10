@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 from core.camera_runner import DetectionRecord
-from utils.draw_utils import _color_for_label, draw_detection_results
+from utils.draw_utils import _clamp_bbox_to_image, _color_for_label, draw_detection_results
 
 
 class VisualizationTests(unittest.TestCase):
@@ -24,6 +24,18 @@ class VisualizationTests(unittest.TestCase):
 
         self.assertEqual(person_color, _color_for_label("person"))
         self.assertNotEqual(person_color, helmet_color)
+
+    def test_draw_detection_results_clamps_out_of_bounds_bbox(self) -> None:
+        image = np.zeros((40, 50, 3), dtype=np.uint8)
+        detections = [DetectionRecord(class_id=0, label="face", confidence=0.88, bbox=(-10, -5, 100, 60))]
+
+        output = draw_detection_results(image.copy(), detections)
+
+        self.assertGreater(int(output.sum()), 0)
+
+    def test_clamp_bbox_to_image_returns_none_for_invalid_box(self) -> None:
+        self.assertIsNone(_clamp_bbox_to_image((20, 20, 20, 30), (40, 50, 3)))
+        self.assertEqual(_clamp_bbox_to_image((30, 10, 5, 25), (40, 50, 3)), (5, 10, 30, 25))
 
 
 if __name__ == "__main__":

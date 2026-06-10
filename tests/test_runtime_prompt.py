@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from tools.runtime_tool import prompt_runtime_model
 from utils.console_ui import mode_to_ui_defaults, prompt_launch_target, prompt_runtime_mode
 
 
@@ -43,3 +44,21 @@ class RuntimePromptTests(unittest.TestCase):
     def test_mode_to_ui_defaults_maps_values(self) -> None:
         self.assertEqual(mode_to_ui_defaults("auto"), ("auto", "medium"))
         self.assertEqual(mode_to_ui_defaults("high"), ("manual", "high"))
+
+    def test_prompt_runtime_model_accepts_recommended_choice(self) -> None:
+        answers = iter(["1"])
+        printed: list[str] = []
+        model = prompt_runtime_model(
+            selected_mode="medium",
+            recommendations={
+                "medium": type(
+                    "Runtime",
+                    (),
+                    {"primary_model_name": "yolo11s.pt", "candidate_models": ["yolo11s.pt", "yolo11n.pt"]},
+                )()
+            },
+            input_fn=lambda _: next(answers),
+            print_fn=printed.append,
+        )
+        self.assertEqual(model, "yolo11s.pt")
+        self.assertTrue(any("CHỌN MODEL" in line for line in printed))

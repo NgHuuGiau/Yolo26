@@ -328,15 +328,21 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     }
     QFrame#Composer {
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-            stop:0 rgba(27, 28, 34, 0.98),
-            stop:1 rgba(20, 21, 26, 0.98));
-        border: 1px solid rgba(255, 255, 255, 0.08);
+            stop:0 rgba(30, 32, 39, 0.99),
+            stop:1 rgba(18, 20, 26, 0.99));
+        border: 1px solid rgba(255, 255, 255, 0.10);
         border-radius: 30px;
     }
     QFrame#ComposerInputRow,
     QWidget#ComposerPreviewHost {
         background: transparent;
         border: none;
+    }
+    QFrame#ComposerInputRow {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 24px;
+        padding: 2px 4px;
     }
     QScrollArea#ComposerPreviewScroll {
         background: transparent;
@@ -448,11 +454,11 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         background: transparent;
         border: none;
         border-radius: 0;
-        color: #ececf1;
-        font-size: 15px;
-        padding: 10px 2px 10px 2px;
-        min-height: 28px;
-        max-height: 72px;
+        color: #f5f7fb;
+        font-size: 16px;
+        padding: 12px 8px 12px 8px;
+        min-height: 36px;
+        max-height: 88px;
     }
     QPlainTextEdit#ComposerInput,
     QPlainTextEdit#ComposerInput QWidget { /* Đảm bảo viewport trong suốt */
@@ -572,15 +578,15 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         min-height: 44px;
         max-height: 44px;
         border-radius: 20px;
-        border: none;
-        background: transparent;
-        color: #e3e3e3;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.04);
+        color: #f2f4f8;
         font-size: 20px;
         padding: 0;
         text-align: center;
     }
     QPushButton#RoundButton:hover {
-        background: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.12);
     }
     QPushButton#SendButton {
         min-width: 44px;
@@ -596,6 +602,18 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
     }
     QPushButton#SendButton:hover {
         background: #86cbff; /* Hover sáng hơn */
+    }
+    QPushButton#SendButton {
+        background: #2ea8ff;
+    }
+    QPushButton#SendButton:hover {
+        background: #62c0ff;
+    }
+    QPushButton#SendButton {
+        background: #1f9cff;
+    }
+    QPushButton#SendButton:hover {
+        background: #58b9ff;
     }
     QPushButton#SettingsNavButton {
         background: rgba(255, 255, 255, 0.04);
@@ -739,14 +757,20 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border-radius: 20px;
     }
     QFrame#Composer {
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid rgba(17, 24, 39, 0.08);
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(17, 24, 39, 0.10);
         border-radius: 30px;
     }
     QFrame#ComposerInputRow,
     QWidget#ComposerPreviewHost {
         background: transparent;
         border: none;
+    }
+    QFrame#ComposerInputRow {
+        background: rgba(17, 24, 39, 0.035);
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        border-radius: 24px;
+        padding: 2px 4px;
     }
     QScrollArea#ComposerPreviewScroll {
         background: transparent;
@@ -859,10 +883,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         border: none;
         border-radius: 0;
         color: #111827;
-        font-size: 15px;
-        padding: 10px 2px 10px 2px;
-        min-height: 28px;
-        max-height: 72px;
+        font-size: 16px;
+        padding: 12px 8px 12px 8px;
+        min-height: 36px;
+        max-height: 88px;
     }
     QPlainTextEdit#ComposerInput,
     QPlainTextEdit#ComposerInput QWidget { /* Đảm bảo viewport trong suốt */
@@ -982,8 +1006,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
         min-height: 44px;
         max-height: 44px;
         border-radius: 20px;
-        border: none;
-        background: transparent;
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        background: rgba(255, 255, 255, 0.92);
         color: #111827;
         font-size: 20px;
         padding: 0;
@@ -1736,29 +1760,59 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.setLineWrapMode(QPlainTextEdit.WidgetWidth)
             self.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
             self.setCenterOnScroll(False)
-            self.setCursorWidth(2)
+            self.setCursorWidth(3)
+            self.document().setDocumentMargin(4)
+            self.setContentsMargins(0, 0, 0, 0)
+            self.setTabChangesFocus(False)
+            self.setFocusPolicy(Qt.StrongFocus)
+            self.setPlaceholderText("Nhập tin nhắn...")
+            self._adjust_height()
 
         def apply_visual_style(self, *, dark_mode: bool) -> None:
             palette = self.palette()
             if dark_mode:
                 palette.setColor(QPalette.Text, QColor("#F3F4F6"))
-                palette.setColor(QPalette.PlaceholderText, QColor("#9CA3AF"))
+                palette.setColor(QPalette.PlaceholderText, QColor("#C2CAD6"))
                 palette.setColor(QPalette.Base, QColor(0, 0, 0, 0))
                 palette.setColor(QPalette.Highlight, QColor("#4DB8FF"))
                 palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
+                self.setStyleSheet(
+                    "background: transparent;"
+                    "border: none;"
+                    "color: #F3F4F6;"
+                    "selection-background-color: #4DB8FF;"
+                    "selection-color: #FFFFFF;"
+                    "font-size: 16px;"
+                    "padding: 8px 6px;"
+                )
             else:
                 palette.setColor(QPalette.Text, QColor("#111827"))
                 palette.setColor(QPalette.PlaceholderText, QColor("#6B7280"))
                 palette.setColor(QPalette.Base, QColor(0, 0, 0, 0))
                 palette.setColor(QPalette.Highlight, QColor("#93C5FD"))
                 palette.setColor(QPalette.HighlightedText, QColor("#111827"))
+                self.setStyleSheet(
+                    "background: transparent;"
+                    "border: none;"
+                    "color: #111827;"
+                    "selection-background-color: #93C5FD;"
+                    "selection-color: #111827;"
+                    "font-size: 16px;"
+                    "padding: 8px 6px;"
+                )
             self.setPalette(palette)
             self.viewport().setPalette(palette)
+            self.viewport().setStyleSheet("background: transparent;")
 
         def _adjust_height(self):
             self.document().setTextWidth(self.viewport().width())
-            height = self.document().size().height() + self.contentsMargins().top() + self.contentsMargins().bottom()
-            self.setFixedHeight(max(28, min(int(height), 72)))
+            height = (
+                self.document().size().height()
+                + self.contentsMargins().top()
+                + self.contentsMargins().bottom()
+                + 16
+            )
+            self.setFixedHeight(max(40, min(int(height), 88)))
 
         enter_pressed = Signal()
 
@@ -1984,6 +2038,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
                     )
                 ]
             self.retranslate_ui()
+            QTimer.singleShot(0, self.message_input.setFocus)
 
         def setup_tray_icon(self) -> None:
             self.tray_icon = QSystemTrayIcon(self)
@@ -2199,10 +2254,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.composer = QFrame()
             self.composer.setObjectName("Composer")
             composer_layout = QVBoxLayout(self.composer)
-            composer_layout.setContentsMargins(10, 10, 10, 10)
-            composer_layout.setSpacing(8)
-            self.composer.setMinimumHeight(96)
-            self.composer.setMaximumHeight(220)
+            composer_layout.setContentsMargins(8, 8, 8, 8)
+            composer_layout.setSpacing(6)
+            self.composer.setMinimumHeight(82)
+            self.composer.setMaximumHeight(180)
 
             self.image_preview_area = QScrollArea()
             self.image_preview_area.setObjectName("ComposerPreviewScroll")
@@ -2225,8 +2280,8 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
             self.message_input_row = QFrame()
             self.message_input_row.setObjectName("ComposerInputRow")
             input_row_layout = QHBoxLayout(self.message_input_row)
-            input_row_layout.setContentsMargins(4, 0, 0, 0)
-            input_row_layout.setSpacing(8)
+            input_row_layout.setContentsMargins(6, 4, 6, 4)
+            input_row_layout.setSpacing(6)
 
             self.plus_button = QPushButton("")
             self.plus_button.setFixedSize(44, 44)
@@ -2235,9 +2290,10 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             self.message_input = MessageInput()
             self.message_input.setObjectName("ComposerInput")
-            self.message_input.setMinimumHeight(28)
-            self.message_input.setMaximumHeight(72)
+            self.message_input.setMinimumHeight(40)
+            self.message_input.setMaximumHeight(88)
             self.message_input.setFrameShape(QFrame.NoFrame)
+            self.message_input.setPlaceholderText(tr(self.language, "input_placeholder"))
             self.message_input.viewport().setAutoFillBackground(False)
             self.message_input.viewport().setStyleSheet("background: transparent;")
             self.message_input.enter_pressed.connect(self.send_message)
@@ -2629,7 +2685,7 @@ def launch_chat_ai_app(*, window_title: str, camera_index: int = 0, app_mode: st
 
             has_attachments = bool(self.pending_image_attachments)
             self.image_preview_area.setVisible(has_attachments)
-            self.composer.setMinimumHeight(176 if has_attachments else 96)
+            self.composer.setMinimumHeight(152 if has_attachments else 82)
 
             if not has_attachments:
                 return

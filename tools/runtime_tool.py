@@ -147,6 +147,17 @@ def _model_local_text(models: list[str]) -> str:
     return ", ".join(models) if models else "không có model local nào"
 
 
+def _recommended_models_for_mode(mode: str, recommendations: dict[str, object] | None) -> list[str]:
+    if not recommendations:
+        return []
+    runtime = recommendations.get(mode)
+    if runtime is None:
+        return []
+    primary = getattr(runtime, "primary_model_name", "")
+    candidates = list(getattr(runtime, "candidate_models", []) or [])
+    return [item for item in dict.fromkeys([primary, *candidates]) if item]
+
+
 def _mode_color(mode: str) -> str:
     return {"high": GREEN, "medium": YELLOW, "low": MAGENTA}.get(mode, CYAN)
 
@@ -155,6 +166,55 @@ def _project_model_text(settings: dict, mode: str) -> str:
     profile = settings["models"][mode]
     device = "gpu" if mode in {"high", "medium"} else "auto"
     return f"{profile['model']} / {device} / imgsz {profile['imgsz']}"
+
+
+def prompt_runtime_model(
+    *,
+    selected_mode: str,
+    recommendations: dict[str, object] | None = None,
+    input_fn=input,
+    print_fn=print,
+) -> str:
+    available_models, missing_models = _available_models()
+    recommended = _recommended_models_for_mode(selected_mode, recommendations)
+    options = list(dict.fromkeys([*recommended, *available_models]))
+    if not options:
+        raise RuntimeError("Không có model local nào để chọn. Hãy chạy training\\download_models.py trước.")
+    if len(options) == 1:
+        chosen = options[0]
+        print_fn("")
+        print_fn(line(f"Tự động chọn model duy nhất: {chosen}", GREEN))
+        return chosen
+
+    while True:
+        print_fn(line(rule("="), CYAN))
+        print_fn(section("CHỌN MODEL SẼ CHẠY", CYAN))
+        print_fn(row("Chế độ đã chọn", mode_title(selected_mode), _mode_color(selected_mode), bounded=False))
+        if recommended:
+            print_fn(row("Model nên dùng", ", ".join(recommended), GREEN, bounded=False))
+        if missing_models:
+            print_fn(row("Model còn thiếu", ", ".join(missing_models), YELLOW, bounded=False))
+        print_fn(line(rule("-"), CYAN))
+        for index, model_name in enumerate(options, start=1):
+            hint = "khuyến nghị" if model_name in recommended else "có sẵn"
+            color = GREEN if model_name in recommended else CYAN
+            print_fn(row(f"{index} | {model_name}", hint, color))
+        print_fn(line(rule("."), DIM))
+        print_fn(row("0 | THOÁT", "Đóng chương trình ngay tại đây.", RED))
+        print_fn(line(rule("-"), CYAN))
+
+        raw_value = input_fn(line(f"Nhập lựa chọn của bạn (0-{len(options)}): ")).strip()
+        if raw_value == "0":
+            raise SystemExit(0)
+        if raw_value.isdigit():
+            selected_index = int(raw_value) - 1
+            if 0 <= selected_index < len(options):
+                selected_model = options[selected_index]
+                print_fn("")
+                print_fn(line(f"Đã chọn model: {selected_model}", GREEN))
+                return selected_model
+        print_fn(line("Lựa chọn không hợp lệ. Vui lòng nhập số trong danh sách.", RED))
+        input_fn(line("Nhấn Enter để chọn lại...", DIM))
 
 
 def main() -> None:

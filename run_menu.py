@@ -27,11 +27,10 @@ def _configure_terminal_encoding() -> None:
 MENU_OPTIONS = {
     "1": ("run_app.py", "Camera realtime theo c\u1ea5u h\u00ecnh ch\u00ednh"),
     "2": ("run_detect.py", "Camera detect realtime t\u1ed1i gi\u1ea3n"),
-    "3": ("run_tools.py", "Xem c\u1ea5u h\u00ecnh m\u00e1y v\u00e0 3 m\u1ee9c t\u1ed1i \u01b0u"),
-    "4": ("run_chat.py", "UX/UI desktop v\u00e0 chat"),
-    "5": ("run_tests.py", "Ch\u1ea1y to\u00e0n b\u1ed9 test"),
-    "6": ("run_doctor.py", "Ki\u1ec3m tra to\u00e0n h\u1ec7 th\u1ed1ng"),
-    "7": ("run_train.py", "Ch\u1ea1y hu\u1ea5n luy\u1ec7n"),
+    "3": ("run_chat.py", "UX/UI desktop v\u00e0 chat"),
+    "4": ("run_tests.py", "Ch\u1ea1y to\u00e0n b\u1ed9 test"),
+    "5": ("run_doctor.py", "Ki\u1ec3m tra to\u00e0n h\u1ec7 th\u1ed1ng"),
+    "6": ("run_train.py", "Ch\u1ea1y hu\u1ea5n luy\u1ec7n"),
     "0": ("", "Tho\u00e1t"),
 }
 PRIMARY_KEYS = tuple(key for key in MENU_OPTIONS if key != "0")
@@ -44,12 +43,12 @@ def _render_menu(print_fn=print) -> None:
     for item in header("YOLO HUB :: \u0110I\u1ec0U H\u01af\u1edaNG TERMINAL"):
         print_fn(item)
     print_fn(section("M\u1ede CAMERA", GREEN))
-    for key in ("1", "2", "3"):
+    for key in ("1", "2"):
         script_name, description = MENU_OPTIONS[key]
         print_fn(row(f"{key} | {script_name}", description, GREEN, bounded=False))
     print_fn(line(rule("-"), CYAN))
     print_fn(section("UX/UI V\u00c0 KI\u1ec2M TRA", YELLOW))
-    for key in ("4", "5", "6", "7"):
+    for key in ("3", "4", "5", "6"):
         script_name, description = MENU_OPTIONS[key]
         print_fn(row(f"{key} | {script_name}", description, YELLOW, bounded=False))
     print_fn(line(rule("-"), CYAN))
@@ -69,7 +68,7 @@ def main(input_fn=input, print_fn=print, run_script_fn=_run_script, clear_termin
     _configure_terminal_encoding()
     while True:
         _render_menu(print_fn=print_fn)
-        choice = input_fn("Nh\u1eadp l\u1ef1a ch\u1ecdn c\u1ee7a b\u1ea1n (0/1/2/3/4/5/6/7): ").strip()
+        choice = input_fn("Nh\u1eadp l\u1ef1a ch\u1ecdn c\u1ee7a b\u1ea1n (0/1/2/3/4/5/6): ").strip()
         if choice == "0":
             print_fn(line(TESTED_EXIT_TEXT, YELLOW))
             return 0
