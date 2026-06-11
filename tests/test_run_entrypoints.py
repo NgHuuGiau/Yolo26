@@ -55,7 +55,7 @@ class RunEntrypointsTests(unittest.TestCase):
     @patch("run_app.print_runtime_dashboard")
     @patch("run_app.resolve_start_bundle")
     @patch("run_app.parse_args")
-    def test_run_app_main_runs_camera_only(
+    def test_run_app_main_passes_through_requested_target(
         self,
         parse_args_mock,
         resolve_start_bundle_mock,
@@ -77,11 +77,10 @@ class RunEntrypointsTests(unittest.TestCase):
         exit_code = run_app.main()
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(args.target, "camera")
         resolve_start_bundle_mock.assert_called_once_with(
             requested_mode=None,
             requested_model=None,
-            requested_target="camera",
+            requested_target="ui",
             preferred_target="camera",
         )
         print_dashboard_mock.assert_called_once_with(

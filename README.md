@@ -1,116 +1,148 @@
 # YOLO Realtime Camera Project
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Windows](https://img.shields.io/badge/Windows-11%2B-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-5391FE?logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-[![Ultralytics](https://img.shields.io/badge/Ultralytics-YOLO11-111111)](https://www.ultralytics.com/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
-[![NumPy](https://img.shields.io/badge/NumPy-Array%20Computing-013243?logo=numpy&logoColor=white)](https://numpy.org/)
-[![Pillow](https://img.shields.io/badge/Pillow-Image%20Processing-8CAAE6)](https://python-pillow.org/)
-[![YAML](https://img.shields.io/badge/YAML-Config-CB171E?logo=yaml&logoColor=white)](https://yaml.org/)
+Bo project nay tap trung vao YOLO realtime tren webcam, menu terminal de mo cac cong cu chinh, va pipeline training tach rieng cho dataset cua ban.
 
-## Giới thiệu dự án
+## He thong hien tai
 
-Đây là dự án nhận diện vật thể realtime bằng webcam, chạy trên desktop Windows với Python, OpenCV, Ultralytics YOLO11 và PyTorch.
+- Runtime camera chi con luong detect realtime, khong con luong chup sample bang phim `T` hoac `C`.
+- Thu muc `dataset/sample/` va script `training/promote_samples.py` da duoc bo.
+- Ket qua detect van hien thi bang box tren frame camera.
+- Khi chay camera, he thong uu tien model pretrained YOLO COCO de nhan dien nhieu vat pho thong.
+- Pipeline training van giu rieng model custom trong `models/trained/best.pt`.
 
-Dự án hiện có:
+## Cac script chinh
 
-- giao diện terminal tiếng Việt
-- tự dò cấu hình máy trước khi chạy
-- tự gợi ý mức phù hợp theo `CPU`, `RAM`, `GPU`, `VRAM`, `PyTorch`, `CUDA`
-- hỗ trợ 5 model `YOLO11`
-- hỗ trợ chụp mẫu train trực tiếp từ webcam bằng phím `T`
-- pipeline huấn luyện, kiểm tra và export model riêng
-- menu tổng để chạy nhanh các file chính
-- bộ test để kiểm tra toàn hệ thống
-- tự động fallback khi model hoặc cấu hình chính lỗi
-- nhận dạng giọng nói (Whisper)ình chính lỗi
-- chat AI với Gemini API (PySide6 GUI)
-- nhận dạng giọng nói (Whisper)
+- `run_menu.py`: menu tong de mo nhanh cac script chinh.
+- `run_app.py`: camera runtime chinh, co dashboard va luong chon mode.
+- `run_detect.py`: camera detect toi gian theo CLI.
+- `run_chat.py`: giao dien desktop/chat.
+- `run_doctor.py`: kiem tra camera, model, CUDA, PyTorch va cac thanh phan runtime.
+- `run_tests.py`: chay test toan repo.
+- `run_train.py`: chay huan luyen.
+- `run_tools.py`: bo tu van runtime, chi de xem de xuat theo may.
 
-### Ngôn ngữ và thư viện đang dùng
+## Menu dang co
 
-**Ngôn ngữ chính**
+Khi mo `run_menu.py`, menu hien tai gom:
 
-- `Python`
+- `1`: `run_app.py`
+- `2`: `run_detect.py`
+- `3`: `run_chat.py`
+- `4`: `run_tests.py`
+- `5`: `run_doctor.py`
+- `6`: `run_train.py`
+- `0`: thoat
 
-**Thư viện AI / Computer Vision**
+## Runtime camera
 
-- `ultralytics`
-- `torch`
-- `torchvision`
-- `torchaudio`
-- `opencv-python`
-- `pillow`
-- `numpy`
+Khi chay `run_app.py` hoac `run_detect.py`:
 
-**Thư viện dữ liệu / hỗ trợ**
+- he thong doc CPU, RAM, GPU, VRAM va kha nang CUDA
+- neu ban chua truyen `--mode`, chuong trinh se cho chon `high`, `medium`, `low`
+- moi mode la muc tai toi uu theo phan cung, khong phai 3 model co dinh cho moi may
+- model local duoc load theo thu tu uu tien trong `config/model_config.yaml`
+- runtime camera hien uu tien `models/pretrained/yolo11s.pt`, `yolo11s.pt`, `models/pretrained/yolo11n.pt`, `yolo11n.pt`, sau do moi fallback sang `models/trained/best.pt`
+- muc dich cua thu tu nay la de webcam nhan dien duoc nhieu doi tuong pho thong nhu `person`, `car`, `bottle`, `chair`, `cell phone`
+- nhan `Esc` de thoat camera
 
-- `pandas`
-- `matplotlib`
-- `scikit-learn`
-- `tqdm`
-- `PyYAML`
-- `psutil`
-- `GPUtil`
+Dieu quan trong:
 
-**Thư viện Chat AI**
+- `run_app.py` va `run_detect.py` deu co co che tu chon mode runtime
+- chung khong tu dong bat camera theo mot mode bi an nua neu ban chua chon `--mode`
+- model custom train rieng van duoc su dung cho cac luong train, validate, export
 
-- `PySide6`
-- `faster-whisper`
-- `pyaudio`
+## Dataset va training
 
-### 5 model YOLO11 đang dùng
+Du lieu train duoc dat truc tiep vao:
 
-- `yolo11n.pt`
-- `yolo11s.pt`
-- `yolo11m.pt`
-- `yolo11l.pt`
-- `yolo11x.pt`
+- `dataset/raw/images`
+- `dataset/raw/labels`
 
-### 3 mức người dùng sẽ thấy khi chạy camera
+Cau truc train sau khi tach tap:
 
-- `Cao nhất`
-- `Trung bình`
-- `Yếu`
+```text
+dataset/
+  raw/
+    images/
+    labels/
+  processed/
+    images/train
+    images/val
+    images/test
+    labels/train
+    labels/val
+    labels/test
+```
 
-Hệ thống không ép model lớn nhất bằng mọi giá. Nó sẽ cố chọn mức cao nhất mà máy còn chạy ổn định.
+File class hien tai duoc khai bao trong `training/data.yaml`. O trang thai hien tai repo dang co:
 
-Ví dụ:
+```yaml
+names:
+  0: person
+```
 
-- máy rất mạnh, VRAM lớn -> có thể lên `yolo11x.pt`
-- máy mạnh -> có thể lên `yolo11l.pt`
-- máy tầm trung như `RTX 3050 Ti 4GB` -> thường về `yolo11s.pt` hoặc `yolo11m.pt`
-- máy yếu hoặc CPU-only -> thường về `yolo11n.pt`
+Neu ban muon train them `phone` hoac class khac, can cap nhat dataset va `training/data.yaml` dong bo.
 
-### Bảng chọn model theo máy
+## Cai dat nhanh
 
-| Điều kiện phần cứng | High | Medium | Low |
-|---|---|---|---|
-| GPU >= 12GB VRAM | `yolo11x.pt` / GPU / `imgsz 960` | `yolo11m.pt` / GPU / `imgsz 768` | `yolo11n.pt` / GPU / `imgsz 416` |
-| GPU >= 8GB VRAM | `yolo11l.pt` / GPU / `imgsz 896` | `yolo11m.pt` / GPU / `imgsz 768` | `yolo11n.pt` / GPU / `imgsz 416` |
-| GPU >= 4GB VRAM | `yolo11s.pt` / GPU / `imgsz 640` | `yolo11s.pt` / GPU / `imgsz 640` | `yolo11n.pt` / GPU / `imgsz 416` |
-| GPU 3GB - dưới 4GB VRAM | `yolo11s.pt` / GPU / `imgsz 512` | `yolo11s.pt` / GPU / `imgsz 512` | `yolo11n.pt` / GPU / `imgsz 416` |
-| GPU dưới 3GB VRAM | `yolo11n.pt` / GPU / `imgsz 512` | `yolo11n.pt` / GPU / `imgsz 512` | `yolo11n.pt` / CPU / `imgsz 320` |
-| Không có CUDA / CPU-only | `yolo11n.pt` hoặc `yolo11s.pt` / CPU / `imgsz 416` | `yolo11n.pt` / CPU / `imgsz 416` | `yolo11n.pt` / CPU / `imgsz 320` |
+```powershell
+cd D:\YOLO
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+.\.venv\Scripts\python training\prepare_dataset.py
+.\.venv\Scripts\python training\download_models.py
+```
 
-### Bảng tối ưu FPS theo chế độ
+Neu dung NVIDIA GPU, hay cai dung ban PyTorch CUDA phu hop truoc.
 
-| Chế độ | Nhịp detect | Cách hiển thị frame xen kẽ | Tối ưu nền đang bật |
-|---|---|---|---|
-| `High` | detect mỗi `1` frame | vẽ detection mới liên tục | worker thread infer, cache panel `BGR`, giảm convert thừa |
-| `Medium` | detect mỗi `2` frame (tối đa 5) | giữ box gần nhất để nhìn vẫn mượt | worker thread infer, cache panel `BGR`, `sidebar/stat/chat` refresh thưa hơn |
-| `Low` | detect mỗi `5` frame (tối đa 8) | giữ box gần nhất để ưu tiên FPS | worker thread infer, cache panel `BGR`, giảm redraw panel phụ mạnh nhất |
+## Cach chay
 
-Ghi chú:
+Menu tong:
 
-- khung camera cố định 800×600 theo `High / Medium / Low`
-- `Medium` và `Low` ưu tiên FPS bằng cách giảm số lần gọi YOLO và giảm số lần redraw
+```powershell
+.\.venv\Scripts\python run_menu.py
+```
 
-### Lưu ý quan trọng
+Chay truc tiep:
 
-- repo này chỉ chứa code
-- repo này không kèm model `.pt`
-- repo này không kèm dataset
-- bạn phải tự đặt model vào `models/pretrained/`
+```powershell
+.\.venv\Scripts\python run_app.py
+.\.venv\Scripts\python run_detect.py
+.\.venv\Scripts\python run_chat.py
+.\.venv\Scripts\python run_doctor.py
+.\.venv\Scripts\python run_tests.py
+.\.venv\Scripts\python run_train.py
+.\.venv\Scripts\python run_tools.py
+```
+
+Chon mode bang CLI:
+
+```powershell
+.\.venv\Scripts\python run_app.py --mode high
+.\.venv\Scripts\python run_detect.py --mode medium
+```
+
+## Quy trinh training de xuat
+
+```powershell
+.\.venv\Scripts\python training\validate_dataset.py
+.\.venv\Scripts\python training\split_dataset.py
+.\.venv\Scripts\python run_train.py
+.\.venv\Scripts\python training\validate_model.py
+.\.venv\Scripts\python training\export_model.py
+```
+
+## Kiem tra he thong
+
+```powershell
+.\.venv\Scripts\python run_doctor.py
+.\.venv\Scripts\python run_tests.py
+```
+
+## Khong con trong repo
+
+- chup sample train truc tiep tu camera runtime
+- doi ten sample trong luc dang mo webcam
+- dem nguoc giu yen de chup sample
+- flow `camera -> dataset/sample -> promote_samples -> raw`

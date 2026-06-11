@@ -18,8 +18,6 @@ PROJECT_DIRS = tuple(
         "dataset/processed/labels/train",
         "dataset/processed/labels/val",
         "dataset/processed/labels/test",
-        "dataset/sample/images",
-        "dataset/sample/labels",
         "models/pretrained",
         "models/trained",
         "models/exported",

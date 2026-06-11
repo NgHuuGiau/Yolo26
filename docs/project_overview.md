@@ -1,279 +1,127 @@
 # Project Overview
 
-## Giới thiệu dự án
+## Muc tieu
 
-Đây là dự án nhận diện vật thể realtime bằng webcam, chạy trên desktop Windows với Python, OpenCV, Ultralytics YOLO11 và PyTorch.
+Repo nay tap trung vao 3 nhom chuc nang:
 
-## Tính năng chính
+- chay YOLO realtime tu webcam
+- tu van va chon runtime theo phan cung
+- train, validate, export model tu dataset co san
 
-- giao diện terminal tiếng Việt
-- tự dò cấu hình máy trước khi chạy
-- tự gợi ý mức phù hợp theo `CPU`, `RAM`, `GPU`, `VRAM`, `PyTorch`, `CUDA`
-- hỗ trợ 5 model `YOLO11`
-- hỗ trợ chụp mẫu train trực tiếp từ webcam bằng phím `T`
-- pipeline huấn luyện, kiểm tra và export model riêng
-- menu tổng để chạy nhanh các file chính
-- bộ test để kiểm tra toàn hệ thống
-- tự động fallback khi model hoặc cấu hình chính lỗi
-- nhận dạng giọng nói (Whisper)
-
-## Ngôn ngữ và thư viện đang dùng
-
-**Ngôn ngữ chính**
-
-- `Python`
-
-**Thư viện AI / Computer Vision**
-
-- `ultralytics`
-- `torch`
-- `torchvision`
-- `torchaudio`
-- `opencv-python`
-- `pillow`
-- `numpy`
-
-**Thư viện dữ liệu / hỗ trợ**
-
-- `pandas`
-- `matplotlib`
-- `scikit-learn`
-- `tqdm`
-- `PyYAML`
-- `psutil`
-- `GPUtil`
-
-**Thư viện Chat AI**
-
-- `PySide6`
-- `faster-whisper`
-- `pyaudio`
-
-## 5 model YOLO11 đang dùng
-
-- `yolo11n.pt`
-- `yolo11s.pt`
-- `yolo11m.pt`
-- `yolo11l.pt`
-- `yolo11x.pt`
-
-## 3 mức người dùng sẽ thấy khi chạy camera
-
-- `Cao nhất`
-- `Trung bình`
-- `Yếu`
-
-Hệ thống không ép model lớn nhất bằng mọi giá. Nó sẽ cố chọn mức cao nhất mà máy còn chạy ổn định.
-
-Ví dụ:
-
-- máy rất mạnh, VRAM lớn -> có thể lên `yolo11x.pt`
-- máy mạnh -> có thể lên `yolo11l.pt`
-- máy tầm trung như `RTX 3050 Ti 4GB` -> thường về `yolo11s.pt` hoặc `yolo11m.pt` (theo optimized selection)
-- máy yếu hoặc CPU-only -> thường về `yolo11n.pt`
-
-## Cấu hình fallback
-
-Theo code thực tế:
-
-- RTX 3050 Ti 4GB (entry GPU):
-  - High: `yolo11s.pt` / `cuda:0` / `imgsz 640` / `max_det 150`
-  - Medium: `yolo11s.pt` / `cuda:0` / `imgsz 512` / `max_det 120`
-  - Low: `yolo11n.pt` / `cuda:0` / `imgsz 416` / `max_det 100`
-- Fallback bắt buộc trong `settings.yaml`:
-  - GPU + `yolo11m.pt` 768
-  - GPU + `yolo11s.pt` 512
-  - GPU + `yolo11s.pt` 416
-  - GPU + `yolo11n.pt` 416
-  - CPU + `yolo11s.pt` 416
-  - CPU + `yolo11n.pt` 320
-
-## Cấu trúc thư mục
+## Tong quan kien truc
 
 ```text
-YOLO/
-|-- app/
-|   |-- camera_app.py
-|
-|-- config/
-|   |-- model_config.yaml
-|   `-- settings.yaml
-|
-|-- core/
-|   |-- camera_runner.py
-|   |-- fallback_manager.py
-|   |-- hardware_info.py
-|   |-- model_loader.py
-|   |-- model_selector.py
-|   `-- runtime_advisor.py
-|
-|-- dataset/
-|   |-- raw/
-|   |   |-- images/
-|   |   `-- labels/
-|   |
-|   |-- processed/
-|   |   |-- images/
-|   |   |   |-- train/
-|   |   |   |-- val/
-|   |   |   `-- test/
-|   |   `-- labels/
-|   |       |-- train/
-|   |       |-- val/
-|   |       `-- test/
-|   |
-|   `-- sample/
-|       |-- images/
-|       `-- labels/
-|
-|-- docs/
-|   |-- install_guide.md
-|   |-- project_overview.md
-|   |-- runtime_tool_guide.md
-|   `-- training_guide.md
-|
-|-- models/
-|   |-- pretrained/
-|   |-- trained/
-|   `-- exported/
-|
-|-- output/
-|   |-- logs/
-|   |-- screenshots/
-|   `-- videos/
-|
-|-- runs/
-|   |-- train/
-|   |-- detect/
-|   `-- val/
-|
-|-- tests/
-|
-|-- tools/
-|   `-- runtime_tool.py
-|
-|-- training/
-|   |-- _training_bootstrap.py
-|   |-- auto_label_raw.py
-|   |-- data.yaml
-|   |-- download_models.py
-|   |-- export_model.py
-|   |-- model_paths.py
-|   |-- prepare_dataset.py
-|   |-- promote_samples.py
-|   |-- split_dataset.py
-|   |-- terminal_ui.py
-|   |-- train_config.yaml
-|   |-- train_model.py
-|   `-- validate_model.py
-|   `-- validate_dataset.py
-|
-|-- utils/
-|   |-- console_ui.py
-|   |-- draw_utils.py
-|   |-- file_utils.py
-|   `-- logger.py
-|
-|-- README.md
-|-- requirements.txt
-|-- run_app.py
-|-- run_detect.py
-|-- run_doctor.py
-|-- run_menu.py
-|-- run_tests.py
-|-- run_train.py
-|-- run_tools.py
-|   `-- run_chat.py
+run_menu.py
+  -> run_app.py / run_detect.py / run_chat.py / run_doctor.py / run_tests.py / run_train.py
+
+run_app.py, run_detect.py
+  -> app.runtime_entry
+  -> core.camera_runner
+  -> core.model_selector
+  -> core.model_loader
+  -> core.runtime_advisor
+
+run_tools.py
+  -> tools.runtime_tool
+
+run_train.py
+  -> training.train_model
 ```
 
-### Giải thích nhanh từng nhóm
+## Sau cleanup
 
-`app/`
+He thong da duoc rut gon de de bao tri hon:
 
-- chứa luồng app camera cấp cao
-- `camera_app.py`: nối phần cứng, chọn mode, terminal UI và camera runtime
-- `chat_ai_app.py`: giao diện chat AI (PySide6)
+- bo luong chup sample train trong runtime camera
+- bo `dataset/sample/`
+- bo script `training/promote_samples.py`
+- bo helper va UI phu thuoc vao phim `T/C`
+- giu lai phan detect realtime bang box tren frame
 
-`config/`
+Dieu nay co nghia runtime camera hien chi con:
 
-- chứa cấu hình YAML
-- `settings.yaml`: model assignment, device, imgsz cho từng profile, camera presets, inference params
-- `model_config.yaml`: thứ tự ưu tiên load model, preferred models hiển thị
+- mo camera
+- chay detect
+- ve box
+- hien thong tin runtime/FPS
+- thoat bang `Esc`
 
-`core/`
+## Cach he thong chon runtime
 
-- lõi xử lý chính của dự án
-- `camera_runner.py`: chạy camera, đọc frame, detect, lưu sample
-- `hardware_info.py`: đọc CPU, RAM, GPU, VRAM, CUDA
-- `model_loader.py`: nạp model YOLO theo thứ tự ưu tiên
-- `model_selector.py`: quyết định cấu hình runtime theo settings.yaml
-- `runtime_advisor.py`: đường tối ưu riêng dùng cho app/detect, có bảng spec hardcoded
-- `fallback_manager.py`: tạo chuỗi fallback khi cấu hình chính lỗi
+Khi vao `run_app.py` hoac `run_detect.py`:
 
-`dataset/`
+- he thong doc phan cung hien tai
+- tinh de xuat cho `high`, `medium`, `low`
+- neu chua truyen `--mode`, nguoi dung se duoc chon 1 trong 3 muc
+- sau do runtime duoc resolve ra `model`, `device`, `imgsz`, `max_det`
 
-- chứa toàn bộ dữ liệu
-- `sample/`: ảnh và label chụp trực tiếp từ app (phím T)
-- `raw/`: dữ liệu gốc chính thức để train
-- `processed/`: dữ liệu đã chia thành `train / val / test`
+`high`, `medium`, `low` la muc tai theo may, khong phai 3 script khac nhau.
 
-`docs/`
+## Chien luoc model hien tai
 
-- tài liệu của dự án
+Runtime camera dang uu tien model pretrained de detect tong quat:
 
-`models/`
+- `models/pretrained/yolo11s.pt`
+- `yolo11s.pt`
+- `models/pretrained/yolo11n.pt`
+- `yolo11n.pt`
+- `models/trained/best.pt`
 
-- `pretrained/`: 5 model YOLO11 tải sẵn
-- `trained/`: `best.pt` sau khi train
-- `exported/`: model đã export như ONNX
+Ly do:
 
-`output/`
+- camera can detect nhieu doi tuong pho thong
+- pretrained COCO hop hon cho nhu cau su dung ngay
+- model custom train rieng van duoc bao luu cho luong training
 
-- log, screenshot, video do app hoặc script tạo ra
+## Thu muc chinh
 
-`runs/`
+```text
+app/
+core/
+docs/
+models/
+tests/
+tools/
+training/
+utils/
+run_app.py
+run_chat.py
+run_detect.py
+run_doctor.py
+run_menu.py
+run_tests.py
+run_tools.py
+run_train.py
+```
 
-- output train chuẩn của Ultralytics
+## Core modules quan trong
 
-`tests/`
+- `core/camera_runner.py`: dieu phoi camera, inference, render frame, filter detection
+- `core/model_loader.py`: load model local theo thu tu uu tien va fallback
+- `core/model_selector.py`: resolve runtime config co ban theo mode va phan cung
+- `core/runtime_advisor.py`: xay de xuat toi uu cho `high`, `medium`, `low`
+- `core/hardware_info.py`: doc CPU, RAM, GPU, VRAM, CUDA, PyTorch
+- `tools/runtime_tool.py`: hien thi bo tu van runtime de tham khao
 
-- toàn bộ test tự động của hệ thống
+## Training flow
 
-`tools/`
+```text
+dataset/raw -> validate -> split -> train -> validate_model -> export
+```
 
-- công cụ thăm dò cấu hình máy
-- `runtime_tool.py`: xem cấu hình, 3 mức tối ưu, đánh giá hệ thống
+Khong con flow cu:
 
-`training/`
+```text
+camera -> dataset/sample -> promote_samples -> raw
+```
 
-- toàn bộ pipeline huấn luyện
-- `prepare_dataset.py`: tạo cấu trúc thư mục dự án
-- `download_models.py`: tải 5 model YOLO11
-- `auto_label_raw.py`: tự động sinh label cho ảnh chưa có label
-- `promote_samples.py`: chuyển sample sang raw
-- `split_dataset.py`: chia raw thành processed theo tỉ lệ 70/15/15
-- `train_model.py`: train model với auto-prepare + fallback
-- `validate_model.py`: kiểm tra model sau train
-- `validate_dataset.py`: kiểm tra dữ liệu raw trước khi train
-- `export_model.py`: export model sang ONNX
-- `terminal_ui.py`: giao diện terminal cho pipeline training
-- `model_paths.py`: resolve path model và data
+## Trang thai dataset hien tai
 
-`utils/`
+`training/data.yaml` dang kha bao toi thieu:
 
-- tiện ích chung
-- `console_ui.py`: UI terminal cho app, dashboard, prompt
-- `draw_utils.py`: hàm vẽ detect lên ảnh/frame
-- `file_utils.py`: đọc ghi file/yaml, tạo thư mục dự án
-- `logger.py`: logging ra file + console
+```yaml
+names:
+  0: person
+```
 
-### File chính nên nhớ
-
-- `run_menu.py` = menu tổng
-- `run_app.py` = chạy app camera chính (desktop)
-- `run_detect.py` = detect camera (CLI)
-- `run_chat.py` = chat AI
-- `run_tools.py` = xem cấu hình máy và 3 mức tối ưu
-- `run_doctor.py` = kiểm tra hệ thống
-- `run_tests.py` = kiểm tra code
-- `run_train.py` = huấn luyện model
+Neu ban muon repo train them nhieu class hon, can cap nhat dataset va file cau hinh nay dong bo.

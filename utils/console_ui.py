@@ -223,19 +223,16 @@ def _render_prompt(hardware: Any | None = None, recommendations: dict[str, Any] 
     _clear_terminal()
     suggested_runtime = recommendations.get("auto") if recommendations else None
     suggested_mode = getattr(suggested_runtime, "mode", "medium") if suggested_runtime else "medium"
-    hardware_summary = (
-        f"CPU: {getattr(hardware, 'cpu_name', 'Không rõ CPU')} | "
-        f"RAM: {float(getattr(hardware, 'ram_gb', 0.0) or 0.0):.1f} GB | "
-        f"GPU: {getattr(hardware, 'gpu_name', 'Không rõ GPU')} | "
-        f"VRAM: {float(getattr(hardware, 'vram_gb', 0.0) or 0.0):.1f} GB"
-        if hardware is not None
-        else "Chưa có dữ liệu phần cứng."
-    )
     lines = [
         _line(_rule("="), CYAN),
         _line(_pad("YOLO REALTIME CAMERA : CHỌN CẤU HÌNH CHẠY"), BOLD + CYAN),
         _line(_rule("="), CYAN),
-        _row("Phần cứng", hardware_summary, GREEN, bounded=False),
+        _section("PHẦN CỨNG", GREEN),
+        _row("CPU", getattr(hardware, "cpu_name", "Không rõ CPU") if hardware is not None else "Chưa có dữ liệu", GREEN if hardware is not None else YELLOW, bounded=False),
+        _row("RAM", f"{float(getattr(hardware, 'ram_gb', 0.0) or 0.0):.1f} GB" if hardware is not None else "-", GREEN if hardware is not None else YELLOW, bounded=False),
+        _row("GPU", getattr(hardware, "gpu_name", "Không rõ GPU") if hardware is not None else "-", GREEN if hardware is not None else YELLOW, bounded=False),
+        _row("VRAM", f"{float(getattr(hardware, 'vram_gb', 0.0) or 0.0):.1f} GB" if hardware is not None else "-", GREEN if hardware is not None else YELLOW, bounded=False),
+        _line(_rule("-"), CYAN),
         _row("Đề xuất", f"{mode_label(suggested_mode)} | hệ thống đã thăm dò máy trước khi chạy.", YELLOW, bounded=False),
         _row("Ý nghĩa", "Chọn 1 trong 3 mức mạnh nhất / trung bình / yếu nhất.", DIM, bounded=False),
         _line(_rule("-"), CYAN),

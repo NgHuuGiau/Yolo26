@@ -5,8 +5,8 @@ preferred_models:
   stable_backup_cpu: yolo11n.pt
 
 priority_order:
-  - models/trained/best.pt
   - models/pretrained/yolo11s.pt
   - yolo11s.pt
   - models/pretrained/yolo11n.pt
   - yolo11n.pt
+  - models/trained/best.pt

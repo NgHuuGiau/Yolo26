@@ -13,7 +13,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    args.target = "camera"
     return run_targeted_entrypoint(
         args=args,
         preferred_target="camera",

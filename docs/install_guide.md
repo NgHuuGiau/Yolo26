@@ -1,297 +1,77 @@
-# Hướng Dẫn Cài Đặt
+# Install Guide
 
-## 1. Yêu cầu
+## Yeu cau
 
-- Windows + PowerShell
-- Python `3.10+`
-- webcam hoạt động bình thường nếu muốn dùng camera
-- nếu muốn chạy GPU NVIDIA thì cần PyTorch CUDA phù hợp
+- Windows
+- Python 3.10 tro len
+- webcam neu muon chay camera realtime
+- GPU NVIDIA la tuy chon, nhung neu co thi nen cai PyTorch CUDA dung ban
 
-### 1.1. Phụ thuộc Chat AI (tùy chọn)
-
-Nếu muốn dùng chat AI:
-
-- Cài đặt thêm: `PySide6`, `faster-whisper`, `pyaudio`
-
-## 2. Vào thư mục dự án
+## Buoc 1: tao moi truong
 
 ```powershell
 cd D:\YOLO
-```
-
-Nếu bạn clone từ Git trước đó thì có thể là:
-
-```powershell
-git clone <repo-url>
-cd D:\YOLO
-```
-
-## 3. Tạo môi trường ảo
-
-```powershell
 python -m venv .venv
-```
-
-## 4. Kích hoạt môi trường
-
-```powershell
 .\.venv\Scripts\Activate.ps1
-```
-
-Khi thành công, bạn sẽ thấy:
-
-```powershell
-(.venv) PS D:\YOLO>
-```
-
-## 5. Cài thư viện Python
-
-```powershell
 pip install -r requirements.txt
 ```
 
-## 6. Cài PyTorch
-
-**Nếu chỉ chạy CPU**
+Neu PowerShell chan script:
 
 ```powershell
-pip install torch torchvision torchaudio
+Set-ExecutionPolicy -Scope Process Bypass
+.\.venv\Scripts\Activate.ps1
 ```
 
-**Nếu chạy NVIDIA CUDA**
-
-Ví dụ CUDA 12.6:
-
-```powershell
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-```
-
-Nếu máy bạn dùng bản CUDA khác, hãy chọn đúng lệnh ở trang chính thức của PyTorch.
-
-## 7. Kiểm tra PyTorch và CUDA
-
-```powershell
-.\.venv\Scripts\python -c "import torch; print('Torch:', torch.__version__); print('CUDA:', torch.cuda.is_available()); print('GPU count:', torch.cuda.device_count())"
-```
-
-Ý nghĩa:
-
-- `Torch:` phiên bản PyTorch đang dùng
-- `CUDA: True` nghĩa là PyTorch đã thấy CUDA
-- `GPU count:` số GPU PyTorch nhìn thấy
-
-## 8. Tạo cấu trúc thư mục
+## Buoc 2: chuan bi thu muc du an
 
 ```powershell
 .\.venv\Scripts\python training\prepare_dataset.py
-```
-
-Lệnh này tạo toàn bộ thư mục cần thiết:
-
-- `dataset/raw/images`, `dataset/raw/labels`
-- `dataset/processed/images/{train,val,test}`, `dataset/processed/labels/{train,val,test}`
-- `dataset/sample/images`, `dataset/sample/labels`
-- `models/pretrained`, `models/trained`, `models/exported`
-- `output/screenshots`, `output/videos`, `output/logs`
-- `runs/train`, `runs/detect`, `runs/val`
-
-## 9. Cài 5 model YOLO11
-
-Bạn có 2 cách.
-
-**Cách 1: dùng script của dự án**
-
-```powershell
 .\.venv\Scripts\python training\download_models.py
 ```
 
-Lệnh này sẽ tải đủ:
+Hai lenh nay se:
 
-- `yolo11n.pt`
-- `yolo11s.pt`
-- `yolo11m.pt`
-- `yolo11l.pt`
-- `yolo11x.pt`
+- tao cac thu muc dataset/models neu chua co
+- tai model pretrained co ban de runtime camera co the chay ngay
 
-vào:
-
-- `models/pretrained/`
-
-**Cách 2: tải thủ công bằng PowerShell**
-
-```powershell
-New-Item -ItemType Directory -Force -Path .\models\pretrained | Out-Null
-
-Invoke-WebRequest -Uri "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt" -OutFile ".\models\pretrained\yolo11n.pt"
-Invoke-WebRequest -Uri "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11s.pt" -OutFile ".\models\pretrained\yolo11s.pt"
-Invoke-WebRequest -Uri "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11m.pt" -OutFile ".\models\pretrained\yolo11m.pt"
-Invoke-WebRequest -Uri "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11l.pt" -OutFile ".\models\pretrained\yolo11l.pt"
-Invoke-WebRequest -Uri "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11x.pt" -OutFile ".\models\pretrained\yolo11x.pt"
-```
-
-## 10. Kiểm tra model đã cài đủ chưa
-
-```powershell
-Get-ChildItem .\models\pretrained\yolo11*.pt
-```
-
-Bạn nên thấy đủ 5 file:
-
-- `yolo11n.pt`
-- `yolo11s.pt`
-- `yolo11m.pt`
-- `yolo11l.pt`
-- `yolo11x.pt`
-
-## 11. Kiểm tra sức khỏe hệ thống
+## Buoc 3: kiem tra cai dat
 
 ```powershell
 .\.venv\Scripts\python run_doctor.py
-```
-
-Lệnh này sẽ kiểm tra:
-
-- CPU, RAM, GPU, VRAM thực tế
-- PyTorch, CUDA
-- có đủ model chưa
-- webcam có hoạt động không
-- dữ liệu raw đã có chưa
-- dữ liệu split đã có chưa
-
-## 12. Chạy test toàn hệ thống
-
-```powershell
 .\.venv\Scripts\python run_tests.py
 ```
 
-## 13. Cách chạy
+Ban nen uu tien `run_doctor.py` truoc de xem:
 
-### 13.1. Mở menu tổng
+- camera co mo duoc khong
+- PyTorch co nhan CUDA khong
+- model local co san khong
+- cac file cau hinh co day du khong
+
+## Buoc 4: chay thu
+
+Menu tong:
 
 ```powershell
 .\.venv\Scripts\python run_menu.py
 ```
 
-Menu có 7 tùy chọn:
-
-| Phím | Lệnh | Mô tả |
-|------|------|-------|
-| `1` | `run_app.py` | Camera app - chế độ desktop |
-| `2` | `run_detect.py` | Detect camera - chế độ CLI |
-| `3` | `run_chat.py` | Chat AI |
-| `4` | `run_tools.py` | Xem cấu hình máy và 3 mức tối ưu |
-| `5` | `run_train.py` | Huấn luyện model |
-| `6` | `run_doctor.py` | Kiểm tra toàn hệ thống |
-| `7` | `run_tests.py` | Chạy toàn bộ test |
-| `0` | | Thoát |
-
-### 13.2. Chạy camera app chính
+Hoac chay tung script:
 
 ```powershell
 .\.venv\Scripts\python run_app.py
-```
-
-App sẽ:
-
-- đọc cấu hình máy thực tế (CPU, RAM, GPU, VRAM, CUDA, PyTorch)
-- tự đề xuất mức chạy phù hợp
-- cho bạn chọn `Cao nhất`, `Trung bình` hoặc `Yếu`
-- tự nạp model YOLO11 phù hợp, thử fallback nếu cần
-
-```powershell
-# chạy trực tiếp không cần chọn mode
-.\.venv\Scripts\python run_app.py --mode auto
-.\.venv\Scripts\python run_app.py --mode high
-.\.venv\Scripts\python run_app.py --mode medium
-.\.venv\Scripts\python run_app.py --mode low
-```
-
-### 13.3. Chạy detect camera
-
-```powershell
 .\.venv\Scripts\python run_detect.py
-```
-
-Giống `run_app.py` nhưng chạy ở chế độ CLI detect trực tiếp.
-
-### 13.4. Chat AI
-
-```powershell
-.\.venv\Scripts\python -c "from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app; args = build_chat_arg_parser('Chat AI').parse_args([]); launch_chat_ai_app(window_title='YOLO Chat AI')"
-```
-
-Tính năng chat AI bao gồm:
-
-- Giao diện chat đa ngôn ngữ (Tiếng Anh/Tiếng Việt)
-- Gửi ảnh, text file, hoặc chụp từ camera làm attachment
-- Nhận dạng giọng nói (Whisper)
-- Lưu trữ cuộc trò chuyện bằng SQLite
-
-### 13.5. Xem cấu hình máy và 3 mức tối ưu
-
-```powershell
+.\.venv\Scripts\python run_train.py
 .\.venv\Scripts\python run_tools.py
 ```
 
-Hiển thị chi tiết:
+## Ghi chu ve PyTorch CUDA
 
-- CPU, RAM, GPU, VRAM, CUDA, PyTorch
-- 5 phiên bản YOLO11 đang có
-- 3 mức chạy: `mạnh nhất`, `trung bình`, `yếu nhất`
-- model, device, imgsz, max_det cho từng mức
-- phân hạng GPU và tải hệ thống hiện tại
+Neu may co GPU NVIDIA nhung `run_doctor.py` bao dang chay CPU:
 
-### 13.6. Chạy train
+- kiem tra ban PyTorch hien tai co ho tro CUDA khong
+- kiem tra driver NVIDIA
+- cai lai PyTorch theo dung CUDA version cua may
 
-```powershell
-.\.venv\Scripts\python run_train.py
-```
-
-### 13.7. Kiểm tra sức khỏe nhanh
-
-```powershell
-.\.venv\Scripts\python run_doctor.py
-```
-
-Nên chạy lệnh này khi:
-
-- mới cài xong
-- nghi ngờ thiếu model
-- nghi ngờ CUDA không hoạt động
-- muốn biết máy nên chạy mức nào
-
-### 13.8. Chạy test hệ thống
-
-```powershell
-.\.venv\Scripts\python run_tests.py
-```
-
-## 14. Kiểm tra nhanh toàn bộ hệ thống
-
-```powershell
-.\.venv\Scripts\python run_doctor.py
-.\.venv\Scripts\python run_tests.py
-```
-
-## 15. Khi chạy camera có thể làm gì
-
-- quan sát kết quả detect theo thời gian thực
-- bấm `T` để chụp mẫu train
-- chụp mẫu có 2 chế độ:
-  - `auto`: tự động đặt tên theo timestamp
-  - `name`: nhập tên class thủ công
-- mẫu chụp sẽ được lưu vào `dataset/sample/` với ảnh và label YOLO format
-- cửa sổ luôn cố định kích thước 800×600
-
-## 17. Validate dataset (trước khi train)
-
-```powershell
-.\.venv\Scripts\python training\validate_dataset.py
-```
-
-Kiểm tra dữ liệu trong `raw`:
-
-- ảnh thiếu label
-- label rỗng
-- label lỗi (sai format)
-- label mồ côi (không có ảnh tương ứng)
+Neu chua dung duoc CUDA, he thong van co the chay CPU, nhung se cham hon.

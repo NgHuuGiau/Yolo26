@@ -50,16 +50,16 @@ class YoloLoaderTests(unittest.TestCase):
 
     @patch("core.model_loader.load_yaml_cached")
     @patch("pathlib.Path.exists", autospec=True)
-    def test_candidate_paths_prioritize_trained_then_pretrained_then_name(
+    def test_candidate_paths_prioritize_pretrained_then_trained_then_name(
         self,
         exists_mock,
         load_yaml_mock,
     ) -> None:
         load_yaml_mock.return_value = {
             "priority_order": [
-                "models/trained/best.pt",
                 "models/pretrained/yolo11s.pt",
                 "yolo11s.pt",
+                "models/trained/best.pt",
             ]
         }
 
@@ -75,7 +75,7 @@ class YoloLoaderTests(unittest.TestCase):
 
         self.assertEqual(
             [candidate.replace("\\", "/") for candidate in candidates],
-            ["models/trained/best.pt", "models/pretrained/yolo11s.pt"],
+            ["models/pretrained/yolo11s.pt", "models/trained/best.pt"],
         )
 
     @patch("core.model_loader._candidate_paths", return_value=[])

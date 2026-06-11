@@ -4,5 +4,4 @@ val: images/val
 test: images/test
 
 names:
-  0: face
-  1: phone
+  0: person

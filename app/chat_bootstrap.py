@@ -5,7 +5,7 @@ from typing import Any
 
 from core.hardware_info import detect_hardware
 from core.runtime_advisor import select_runtime_config_optimized
-from utils.console_ui import prompt_launch_target
+from utils.console_ui import prompt_launch_target, prompt_runtime_mode
 
 
 @dataclass
@@ -50,7 +50,9 @@ def resolve_start_bundle(
     requested_model: str | None,
     requested_target: str | None,
     preferred_target: str = "ui",
+    prompt_runtime_mode_fn=None,
 ) -> StartOptions:
+    prompt_runtime_mode_fn = prompt_runtime_mode_fn or prompt_runtime_mode
     hardware = detect_hardware()
     selected_mode = requested_mode
     runtime = None
@@ -59,7 +61,11 @@ def resolve_start_bundle(
         for mode in ("auto", "high", "medium", "low")
     }
     if selected_mode is None:
-        selected_mode = _default_mode_for_target(requested_target, preferred_target)
+        effective_target = requested_target or preferred_target
+        if effective_target == "camera":
+            selected_mode = prompt_runtime_mode_fn(hardware=hardware, recommendations=recommendations)
+        else:
+            selected_mode = _default_mode_for_target(requested_target, preferred_target)
         runtime = recommendations[selected_mode]
     else:
         runtime = recommendations.get(selected_mode) or _resolve_runtime(selected_mode, hardware)

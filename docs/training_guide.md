@@ -1,108 +1,43 @@
-# Hướng Dẫn Training
+# Training Guide
 
-## 1. Hiểu đúng 3 thư mục dữ liệu
+## Dau vao cua pipeline
 
-**`dataset/sample/`**
+Pipeline train hien tai chi dung du lieu dat truc tiep vao:
 
-- nơi lưu ảnh và label khi bạn bấm `T` trong app
-- đây là mẫu chụp từ camera
-- có 2 chế độ chụp:
-  - `auto`: tự động đặt tên theo timestamp
-  - `name`: nhập tên class thủ công
+- `dataset/raw/images`
+- `dataset/raw/labels`
 
-**`dataset/raw/`**
+Khong con luong trung gian `dataset/sample`.
 
-- nơi chứa dữ liệu gốc chính thức để train
-- nếu bạn đã có sẵn ảnh và file `.txt`, hãy bỏ thẳng vào đây
+## Cau truc label
 
-**`dataset/processed/`**
-
-- nơi chứa dữ liệu đã được hệ thống chia thành:
-  - `train`
-  - `val`
-  - `test`
-- model sẽ train từ đây, không train trực tiếp từ `raw`
-
-Luồng dữ liệu đúng:
-
-```text
-sample -> raw -> processed -> train
-```
-
-## 2. Trường hợp nào dùng thư mục nào
-
-**Nếu bạn chụp từ app bằng phím `T`**
-
-- dữ liệu nằm ở `dataset/sample/`
-- nếu muốn đưa vào pipeline train chính thì chạy:
-
-```powershell
-.\.venv\Scripts\python training\promote_samples.py
-```
-
-Lệnh này sẽ copy:
-
-- `dataset/sample/images` -> `dataset/raw/images`
-- `dataset/sample/labels` -> `dataset/raw/labels`
-
-**Nếu bạn đã có sẵn ảnh + txt**
-
-- bỏ thẳng vào:
-  - `dataset/raw/images/`
-  - `dataset/raw/labels/`
-
-## 3. Quy tắc tên file ảnh và label
-
-Tên ảnh và file `.txt` phải trùng nhau.
-
-Ví dụ đúng:
-
-```text
-dataset/raw/images/anh_001.jpg
-dataset/raw/labels/anh_001.txt
-```
-
-Ví dụ sai:
-
-```text
-dataset/raw/images/anh_001.jpg
-dataset/raw/labels/anh_002.txt
-```
-
-Đuôi ảnh hỗ trợ: jpg, jpeg, png, bmp, webp, tif, tiff
-
-## 4. Format file label YOLO
-
-Mỗi dòng trong file `.txt` có dạng:
+Moi file label YOLO co dang:
 
 ```text
 class_id x_center y_center width height
 ```
 
-Ví dụ một object:
+Tat ca gia tri toa do phai duoc normalize trong khoang `0..1`.
 
-```text
-0 0.512 0.477 0.210 0.330
+## Class hien tai
+
+File `training/data.yaml` dang quy dinh class train cua repo. O hien tai:
+
+```yaml
+names:
+  0: person
 ```
 
-Ví dụ nhiều object trong một ảnh:
+Neu muon train them `phone` hoac class khac:
 
-```text
-0 0.512 0.477 0.210 0.330
-1 0.221 0.610 0.150 0.240
-```
+- them anh va label dung class id
+- cap nhat `training/data.yaml`
+- dam bao tat ca label trong dataset dung cung mapping class
 
-Trong đó:
-
-- `class_id` là số class (số nguyên)
-- các giá trị còn lại là tọa độ chuẩn hóa từ `0` đến `1`
-- mỗi dòng phải có đúng 5 cột
-
-## 5. Pipeline huấn luyện đầy đủ
-
-Khi đã có dữ liệu trong `dataset/raw/`, hãy chạy đúng thứ tự này:
+## Thu tu chay de xuat
 
 ```powershell
+.\.venv\Scripts\python training\prepare_dataset.py
 .\.venv\Scripts\python training\validate_dataset.py
 .\.venv\Scripts\python training\split_dataset.py
 .\.venv\Scripts\python run_train.py
@@ -110,148 +45,39 @@ Khi đã có dữ liệu trong `dataset/raw/`, hãy chạy đúng thứ tự nà
 .\.venv\Scripts\python training\export_model.py
 ```
 
-Hoặc chạy trực tiếp bằng `run_train.py` (sẽ tự động kiểm tra và phân chia dữ liệu nếu cần):
+Y nghia tung buoc:
 
-```powershell
-.\.venv\Scripts\python run_train.py
-```
+- `prepare_dataset.py`: tao thu muc can thiet va chuan bi khung du an
+- `validate_dataset.py`: soat loi label, file thieu, class sai, format sai
+- `split_dataset.py`: chia train/val/test
+- `run_train.py`: huan luyen model
+- `validate_model.py`: danh gia model sau train
+- `export_model.py`: xuat model sang dinh dang phuc vu deploy
 
-## 6. Giải thích từng lệnh huấn luyện
+## Luu y ve model
 
-**Bước 0: Chuẩn bị**
+- Model custom sau khi train nam o `models/trained/best.pt`
+- Cac script train, validate, export duoc thiet ke xoay quanh model custom nay
+- Runtime camera hien tai uu tien model pretrained COCO cho detect da vat
+- Vi vay, can tach ro hai muc dich:
 
-```powershell
-.\.venv\Scripts\python training\prepare_dataset.py
-```
+`models/pretrained/*.pt`: dung cho runtime webcam tong quat
 
-- tạo toàn bộ cấu trúc thư mục dự án
+`models/trained/best.pt`: dung cho bai toan train rieng cua dataset
 
-**1. `training\validate_dataset.py`**
+## Khi nao nen dung model custom trong camera
 
-- kiểm tra dữ liệu trong `raw`
-- phát hiện:
-  - ảnh thiếu label
-  - label rỗng
-  - label lỗi (sai format)
-  - label mồ côi (không có ảnh tương ứng)
+Ban nen doi logic uu tien model neu:
 
-**2. `training\split_dataset.py`**
+- dataset cua ban rat chuyen biet
+- ban muon webcam chi nhan dien class rieng
+- do chinh xac tren class custom quan trong hon detect nhieu vat pho thong
 
-- lấy dữ liệu hợp lệ từ `raw`
-- chia ngẫu nhiên theo seed 42:
-  - `train` ~70%
-  - `val` ~15%
-  - `test` ~15%
-- copy sang:
-  - `processed/images/train`
-  - `processed/images/val`
-  - `processed/images/test`
-  - `processed/labels/train`
-  - `processed/labels/val`
-  - `processed/labels/test`
+Neu khong, cau hinh hien tai hop ly hon cho nhu cau detect tong quat.
 
-**3. `run_train.py`**
+## Khong con ho tro
 
-- train model từ dữ liệu đã chia trong `processed`
-- trước khi train, tự động:
-  - kiểm tra ảnh thiếu label
-  - nếu có ảnh thiếu label, dùng model hiện có để tự sinh label (auto-label)
-  - phân chia lại dữ liệu
-- config train: `training/train_config.yaml`
-  - model: `yolo11s.pt`
-  - fallback_model: `yolo11n.pt` (nếu train lỗi)
-  - imgsz: 512
-  - batch: 4
-  - epochs: 80
-  - patience: 20
-  - device: GPU nếu có
-- nếu train fail với `yolo11s.pt`:
-  - tự động fallback sang `yolo11n.pt`
-  - giới hạn imgsz ≤ 416, batch ≤ 4
-- model tốt nhất được copy về:
-  - `models/trained/best.pt`
-
-**4. `training\validate_model.py`**
-
-- dùng tập `val` để kiểm tra chất lượng model sau train
-- ưu tiên `models/trained/best.pt`, nếu không có thì dùng `models/pretrained/yolo11n.pt`
-- output: `runs/val/validation`
-
-**5. `training\export_model.py`**
-
-- export model sang định dạng ONNX để deploy
-- yêu cầu `models/trained/best.pt` phải tồn tại
-- nếu thiếu sẽ báo lỗi và hướng dẫn cần train trước
-
-## 7. Sau khi train xong
-
-- mở app để dùng model mới train:
-
-```powershell
-.\.venv\Scripts\python run_app.py
-```
-
-- hoặc kiểm tra model:
-
-```powershell
-.\.venv\Scripts\python training\validate_model.py
-```
-
-Hệ thống ưu tiên:
-
-- `models/trained/best.pt` nếu tồn tại
-
-## 8. Auto-label dữ liệu
-
-Nếu có ảnh trong `raw` nhưng thiếu label, bạn có thể chạy:
-
-```powershell
-.\.venv\Scripts\python training\auto_label_raw.py
-```
-
-Lệnh này sẽ:
-
-- dùng model hiện có để tự sinh label cho ảnh chưa có
-- thứ tự model: `models/trained/best.pt` → `models/pretrained/yolo11s.pt` → `models/pretrained/yolo11n.pt`
-- bỏ qua ảnh đã có label trừ khi dùng `--overwrite`
-- confidence mặc định: 0.25
-
-## 9. Lỗi thường gặp khi train
-
-**Không có dữ liệu trong `raw`**
-
-- nghĩa là bạn chưa bỏ ảnh và label vào đúng thư mục
-
-**Không có dữ liệu trong `processed`**
-
-- nghĩa là bạn chưa chạy `split_dataset.py`
-- hoặc `run_train.py` chưa tự động phân chia
-
-**Không có `models/trained/best.pt`**
-
-- nghĩa là train chưa xong nên chưa thể export
-- hoặc train lỗi và fallback chưa tạo được model
-
-**Thiếu model YOLO11**
-
-- hãy chạy:
-
-```powershell
-.\.venv\Scripts\python training\download_models.py
-```
-
-**Label sai format**
-
-- kiểm tra lại: mỗi dòng phải có 5 cột
-- class_id là số nguyên, các giá trị khác từ 0 đến 1
-
-## 10. Chat AI
-
-Sau khi cài đặt các phụ thuộc Chat AI, bạn có thể sử dụng giao diện chat:
-
-Tính năng chat AI bao gồm:
-
-- Giao diện chat đa ngôn ngữ (Tiếng Anh/Tiếng Việt)
-- Gửi ảnh, text file, hoặc chụp từ camera làm attachment
-- Nhận dạng giọng nói (Whisper)
-- Lưu trữ cuộc trò chuyện bằng SQLite
+- chup sample train truc tiep tu camera runtime
+- phim `T/C` de tao sample
+- script `training/promote_samples.py`
+- flow `camera -> sample -> raw`

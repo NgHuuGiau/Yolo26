@@ -1,55 +1,46 @@
-# Hướng Dẫn Công Cụ Runtime
+# Runtime Tool Guide
 
-Tool trong thư mục `tools/` dùng để xem cấu hình máy hiện tại và đề xuất 3 mức chạy tối ưu cho YOLO11.
+`run_tools.py` la cong cu giai thich runtime theo may hien tai. No khong mo camera, khong train, va khong chay detect.
 
-## Công dụng
-
-- đọc cấu hình máy: CPU, RAM, GPU, VRAM, CUDA, PyTorch
-- phân định rõ 3 mức chạy:
-  - `mạnh nhất` = mức cao nhất máy còn gánh được
-  - `trung bình` = mức cân bằng để dùng thường xuyên
-  - `yếu nhất` = mức thấp nhất / dễ chạy nhất, ưu tiên mượt
-- đánh giá trên 5 phiên bản YOLO11: `yolo11x.pt`, `yolo11l.pt`, `yolo11m.pt`, `yolo11s.pt`, `yolo11n.pt`
-- hiển thị `model`, `device`, `imgsz`, `max_det`, fallback chain, và mức hệ thống đề xuất
-
-## Ví dụ RTX 3050 Ti 4GB
-
-- `mạnh nhất`: `yolo11s.pt` / `cuda:0` / `imgsz 640` / `max_det 150`
-- `trung bình`: `yolo11s.pt` / `cuda:0` / `imgsz 512` / `max_det 120`
-- `yếu nhất`: `yolo11n.pt` / `cuda:0` / `imgsz 416` / `max_det 100`
-
-## Cách dùng
+## Lenh chay
 
 ```powershell
 .\.venv\Scripts\python run_tools.py
 ```
 
-## Ghi chú
+## Cong cu nay dung de lam gi
 
-- `run_tools.py` là lệnh chạy chính.
-- Trong `tools/` chỉ có 1 script: `runtime_tool.py`.
+No se tham do may va hien:
 
-## Chat AI
+- CPU
+- RAM
+- GPU
+- VRAM
+- tinh trang CUDA/PyTorch
+- model local dang co va model con thieu
+- 3 muc runtime `high`, `medium`, `low`
+- `model`, `device`, `imgsz`, `max_det` cua tung muc
+- muc de xuat nen chay ngay luc hien tai
 
-Sau khi cài đặt các phụ thuộc Chat AI, chạy chat AI:
+## Cach doc ket qua
 
-```powershell
-.\.venv\Scripts\python -c "from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app; import sys; args = build_chat_arg_parser('Chat AI').parse_args([]); launch_chat_ai_app(window_title='YOLO Chat AI', camera_index=0)"
-```
+- `high`: muc cao nhat may con ganh duoc
+- `medium`: muc can bang de dung thuong xuyen
+- `low`: muc nhe nhat de uu tien do muot va an toan
 
-Hoặc tạo file `run_chat.py` đơn giản để chạy nhanh:
+Moi muc la mot goi cau hinh runtime, khong chi don thuan la doi ten model.
 
-```python
-from app.chat_ai_app import build_chat_arg_parser, launch_chat_ai_app
+## Phan biet voi runtime camera
 
-if __name__ == "__main__":
-    args = build_chat_arg_parser("YOLO Chat AI").parse_args()
-    launch_chat_ai_app(window_title="YOLO Chat AI", camera_index=args.camera_index)
-```
+`run_tools.py` chi giai thich.
 
-Tính năng chat AI bao gồm:
+`run_app.py` va `run_detect.py` moi la hai diem vao de mo webcam va detect realtime.
 
-- Giao diện chat đa ngôn ngữ (Tiếng Anh/Tiếng Việt)
-- Gửi ảnh, text file, hoặc chụp từ camera làm attachment
-- Nhận dạng giọng nói (Whisper)
-- Lưu trữ cuộc trò chuyện bằng SQLite
+## Khi nao nen mo cong cu nay
+
+Nen dung khi ban muon:
+
+- biet may hien tai hop voi mode nao
+- xem vi sao he thong de xuat `high`, `medium`, hay `low`
+- kiem tra model nao da co san trong may
+- doi chieu giua runtime theo du an va kha nang phan cung thuc te
